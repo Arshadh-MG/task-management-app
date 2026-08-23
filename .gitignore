@@ -1,0 +1,18 @@
+target/
+*.log
+
+# Environment files
+.env
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Old SQLite database files
+*.sqlite
+*.db

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard & Workspace Management</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom CSS stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-page" style="display: flex; flex-direction: column; min-height: 100vh; width: 100vw; padding: 0; background: var(--bg); color: var(--text);">
+
+    <!-- Admin Header Navigation Bar -->
+    <header style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2rem;
+        height: 68px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 16px rgba(0,0,0,0.14);
+        gap: 1.25rem;
+    ">
+
+        <!-- LEFT: Back button -->
+        <div style="flex: 0 0 auto;">
+            <a href="./calendar.html" style="
+                display: inline-flex; align-items: center; gap: 0.5rem;
+                padding: 0.48rem 1.1rem;
+                font-size: 0.83rem; font-weight: 600;
+                color: var(--text);
+                background: var(--surface-input);
+                border: 1px solid var(--border);
+                border-radius: var(--control-radius);
+                text-decoration: none;
+                transition: background var(--ease), border-color var(--ease);
+                white-space: nowrap;
+            " onmouseover="this.style.borderColor='var(--accent)';this.style.background='rgba(96,165,250,0.07)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface-input)'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+                Back to Calendar
+            </a>
+        </div>
+
+        <!-- CENTER: Portal title -->
+        <div style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 0.65rem;">
+            <div style="
+                width: 34px; height: 34px; border-radius: 9px;
+                background: rgba(96,165,250,0.13);
+                color: var(--accent);
+                display: flex; align-items: center; justify-content: center;
+                flex-shrink: 0;
+                border: 1px solid rgba(96,165,250,0.2);
+            ">
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h2 style="font-family: var(--font-title); font-size: 1.08rem; font-weight: 700; margin: 0; color: var(--text); white-space: nowrap; letter-spacing: -0.01em;">Admin Control Center</h2>
+        </div>
+
+        <!-- RIGHT: Profile chip + Theme toggle + Logout -->
+        <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 0.7rem;">
+
+            <!-- Admin profile chip -->
+            <div style="
+                display: flex; align-items: center; gap: 0.65rem;
+                padding: 0.4rem 0.85rem 0.4rem 0.5rem;
+                background: var(--surface-input);
+                border: 1px solid var(--border);
+                border-radius: 40px;
+            ">
+                <!-- Avatar circle -->
+                <div id="adminAvatar" style="
+                    width: 34px; height: 34px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #60a5fa 0%, #818cf8 100%);
+                    color: #fff;
+                    font-size: 0.92rem;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    box-shadow: 0 2px 8px rgba(96,165,250,0.4);
+                    letter-spacing: 0;
+                ">A</div>
+                <!-- Name + email stack -->
+                <div style="display: flex; flex-direction: column; line-height: 1.3; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.38rem;">
+                        <span id="adminName" style="font-weight: 700; font-size: 0.85rem; color: var(--text); white-space: nowrap;">Admin</span>
+                        <span id="adminRoleBadge" style="
+                            background: rgba(96,165,250,0.18);
+                            color: var(--accent);
+                            font-size: 0.6rem;
+                            font-weight: 700;
+                            text-transform: uppercase;
+                            letter-spacing: 0.05em;
+                            padding: 0.1rem 0.42rem;
+                            border-radius: 20px;
+                            white-space: nowrap;
+                            border: 1px solid rgba(96,165,250,0.22);
+                        ">Admin</span>
+                    </div>
+                    <span id="adminEmailDisplay" style="font-size: 0.7rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;">admin123@gmail.com</span>
+                </div>
+            </div>
+
+            <!-- Theme toggle -->
+            <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle Theme" style="position: static; width: 36px; height: 36px; border-radius: var(--control-radius); box-shadow: none; flex-shrink: 0;">
+                <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+
+            <!-- Logout button -->
+            <button class="btn btn-secondary" id="adminLogoutBtn" style="width: auto; padding: 0.44rem 0.95rem; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.42rem; color: var(--danger); border-color: rgba(251,113,133,0.35); box-shadow: none; border-radius: var(--control-radius); white-space: nowrap; flex-shrink: 0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Logout</span>
+            </button>
+        </div>
+    </header>
+
+
+    <!-- Main Admin Dashboard Content Area -->
+    <main class="admin-main-container" style="flex: 1; max-width: 1300px; width: 100%; margin: 0 auto; padding: 2.5rem 2rem;">
+        
+        <!-- Welcome Title Section -->
+        <div style="margin-bottom: 2rem;">
+            <h1 style="font-family: var(--font-title); font-size: 2rem; font-weight: 800; color: var(--text); margin-bottom: 0.25rem;">Admin Overview Dashboard</h1>
+            <p style="color: var(--muted); font-size: 0.95rem;">Real-time management metrics, user directory, and task progression tracking</p>
+        </div>
+
+        <!-- 3 Interactive Metric Cards Grid -->
+        <div class="admin-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+            
+            <!-- STAT CARD 1: Total Users -->
+            <div class="stat-card active" id="statCardUsers" style="background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius); padding: 1.5rem; cursor: pointer; box-shadow: var(--shadow); transition: border-color var(--ease), transform var(--ease); position: relative; overflow: hidden;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
+                    <div>
+                        <span style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--faint);">Users Directory</span>
+                        <div class="stat-number" id="statUsersCount" style="font-family: var(--font-title); font-size: 2.5rem; font-weight: 800; color: var(--text); line-height: 1.1; margin-top: 0.25rem;">0</div>
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(96, 165, 250, 0.12); color: var(--accent); display: grid; place-items: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
+                    <span>Registered workspace users</span>
+                    <span class="card-indicator" style="font-weight: 600; color: var(--accent);">Viewing List →</span>
+                </div>
+            </div>
+
+            <!-- STAT CARD 2: Completed Tasks -->
+            <div class="stat-card" id="statCardCompleted" style="background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 1.5rem; cursor: pointer; box-shadow: var(--shadow); transition: border-color var(--ease), transform var(--ease); position: relative; overflow: hidden;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
+                    <div>
+                        <span style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--faint);">Completed Tasks</span>
+                        <div class="stat-number" id="statCompletedCount" style="font-family: var(--font-title); font-size: 2.5rem; font-weight: 800; color: var(--text); line-height: 1.1; margin-top: 0.25rem;">0</div>
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: var(--success-bg); color: var(--success); display: grid; place-items: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
+                    <span>Resolved & finished updates</span>
+                    <span class="card-indicator" style="font-weight: 600; color: var(--muted);">Click to View →</span>
+                </div>
+            </div>
+
+            <!-- STAT CARD 3: Progress Tasks -->
+            <div class="stat-card" id="statCardProgress" style="background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 1.5rem; cursor: pointer; box-shadow: var(--shadow); transition: border-color var(--ease), transform var(--ease); position: relative; overflow: hidden;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
+                    <div>
+                        <span style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--faint);">In-Progress Tasks</span>
+                        <div class="stat-number" id="statProgressCount" style="font-family: var(--font-title); font-size: 2.5rem; font-weight: 800; color: var(--text); line-height: 1.1; margin-top: 0.25rem;">0</div>
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.12); color: #F59E0B; display: grid; place-items: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
+                    <span>Active tasks moving forward</span>
+                    <span class="card-indicator" style="font-weight: 600; color: var(--muted);">Click to View →</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Drilldown Detail Section Container -->
+        <section class="admin-detail-panel" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow);">
+            
+            <!-- Panel Header -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 id="drilldownTitle" style="font-family: var(--font-title); font-size: 1.4rem; font-weight: 700; color: var(--text); margin: 0;">User Management Directory</h2>
+                    <p id="drilldownSubtitle" style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">Manage registered users and purge removed accounts</p>
+                </div>
+                <div>
+                    <input type="text" id="drilldownSearchInput" placeholder="Search records..." style="padding: 0.45rem 1rem; border-radius: var(--control-radius); border: 1px solid var(--border); background: var(--surface-input); color: var(--text); font-size: 0.85rem; outline: none; width: 240px;">
+                </div>
+            </div>
+
+            <!-- View 1: Users Directory View -->
+            <div id="usersViewContainer">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--faint); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                <th style="padding: 0.75rem 1rem;">User Profile</th>
+                                <th style="padding: 0.75rem 1rem;">Email Address</th>
+                                <th style="padding: 0.75rem 1rem;">Role</th>
+                                <th style="padding: 0.75rem 1rem; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminUsersTableBody">
+                            <!-- Populated dynamically via admin.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- View 2: Tasks List View (Used for Completed and Progress drilldowns) -->
+            <div id="tasksViewContainer" class="hidden">
+                <ul class="day-updates-list" id="adminTasksList" style="list-style: none; display: flex; flex-direction: column; gap: 1.25rem; padding: 0;">
+                    <!-- Populated dynamically via admin.js -->
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <!-- Lightbox Modal Viewer -->
+    <div class="lightbox-overlay" id="lightboxOverlay">
+        <button class="lightbox-close" id="lightboxClose" aria-label="Close lightbox">&times;</button>
+        <button class="lightbox-prev" id="lightboxPrev" aria-label="Previous image">&lt;</button>
+        <div class="lightbox-content-wrapper" id="lightboxContentWrapper">
+            <!-- Lightbox slides loaded dynamically -->
+        </div>
+        <button class="lightbox-next" id="lightboxNext" aria-label="Next image">&gt;</button>
+        <div class="lightbox-counter" id="lightboxCounter">1 / 1</div>
+    </div>
+
+    <!-- Core Admin Dashboard Script -->
+    <script src="admin.js"></script>
+</body>
+</html>

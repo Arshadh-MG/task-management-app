@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Calendar Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Custom CSS stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="calendar-page">
+
+    <!-- Main Dashboard Container -->
+    <div class="calendar-container">
+        <!-- Left Sidebar Panel -->
+        <aside class="calendar-sidebar">
+            <button class="sidebar-profile-btn" id="profileBtn" title="Edit Profile">
+                <div class="profile-avatar" id="userAvatar">U</div>
+                <div class="profile-info">
+                    <h3 id="userName">User Profile</h3>
+                    <span id="userRole">Account Role</span>
+                </div>
+                <div class="profile-edit-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                </div>
+            </button>
+
+            <!-- Sidebar Top Actions -->
+            <div style="display: flex; gap: 0.5rem; width: 100%; margin-top: 1rem; margin-bottom: 1.5rem; padding: 0 0.5rem;">
+                <button class="btn-logout" id="logoutBtn" style="flex-grow: 1; min-height: 38px; font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Logout
+                </button>
+                <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle Theme" style="width: 38px; height: 38px; border-radius: var(--control-radius); border: 1px solid var(--border); background: var(--surface-input); color: var(--text); display: grid; place-items: center; cursor: pointer; transition: background var(--ease), border-color var(--ease);">
+                    <!-- Sun Icon -->
+                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M12 2v2" />
+                        <path d="M12 20v2" />
+                        <path d="m4.93 4.93 1.41 1.41" />
+                        <path d="m17.66 17.66 1.41 1.41" />
+                        <path d="M2 12h2" />
+                        <path d="M20 12h2" />
+                        <path d="m6.34 17.66-1.41 1.41" />
+                        <path d="m19.07 4.93-1.41 1.41" />
+                    </svg>
+                    <!-- Moon Icon -->
+                    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        style="display: none;">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Users Sidebar Section -->
+            <div class="sidebar-section">
+                <button class="sidebar-toggle-btn" id="toggleOnlineUsersBtn" style="display: flex; align-items: center; justify-content: space-between; width: 100%; background: transparent; border: 0; padding: 0 0 0.5rem 0; color: var(--faint); cursor: pointer; text-align: left; border-bottom: 1px solid var(--border); margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint);">Users</h4>
+                    <svg class="chevron-icon" id="onlineUsersChevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform var(--ease); transform: rotate(-90deg);"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <ul class="online-users-list" id="onlineUsersList" style="margin-top: 0.5rem; transition: max-height var(--ease); overflow: hidden; display: none; flex-direction: column; gap: 0.75rem;">
+                    <!-- Loaded dynamically via calendar.js -->
+                </ul>
+            </div>
+
+            <!-- Upcoming Events Sidebar -->
+            <div class="sidebar-section">
+                <h4>Progress Events</h4>
+                <ul class="upcoming-list" id="upcomingEventsList">
+                    <!-- Events loaded dynamically here -->
+                    <li class="subtitle" style="padding-left: 0.5rem;" id="noUpcomingText">No progress events</li>
+                </ul>
+            </div>
+
+
+        </aside>
+
+        <!-- Main Workspace Area -->
+        <main class="calendar-main">
+            <!-- Calendar View Container -->
+            <div id="calendarViewContainer" style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
+                <!-- Top Controls -->
+                <section class="calendar-header-section">
+                    <div class="calendar-title-group">
+                        <h1>My Calendar</h1>
+                        <p>Manage and track your schedule events</p>
+                    </div>
+
+                    <div class="calendar-controls" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <a href="./admin.html" class="btn-admin-nav" id="adminPortalBtn" title="Admin Portal" style="display: none; align-items: center; gap: 0.4rem; padding: 0.45rem 0.85rem; border-radius: var(--control-radius); background: linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(37, 99, 235, 0.25)); border: 1px solid var(--accent); color: var(--text); font-weight: 600; font-size: 0.85rem; text-decoration: none; cursor: pointer; transition: background var(--ease), transform var(--ease); margin-right: 0.5rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            <span>Admin</span>
+                        </a>
+
+                        <button class="btn-nav" id="prevMonthBtn" aria-label="Previous Month">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15 18 9 12 15 6" />
+                            </svg>
+                        </button>
+                        
+                        <select id="monthSelect" style="padding: 0.4rem 0.8rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface); color: var(--text); font-weight: 600; outline: none; cursor: pointer; font-size: 0.9rem; transition: border-color var(--ease);">
+                            <option value="0">January</option>
+                            <option value="1">February</option>
+                            <option value="2">March</option>
+                            <option value="3">April</option>
+                            <option value="4">May</option>
+                            <option value="5">June</option>
+                            <option value="6">July</option>
+                            <option value="7">August</option>
+                            <option value="8">September</option>
+                            <option value="9">October</option>
+                            <option value="10">November</option>
+                            <option value="11">December</option>
+                        </select>
+
+                        <select id="yearSelect" style="padding: 0.4rem 0.8rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface); color: var(--text); font-weight: 600; outline: none; cursor: pointer; font-size: 0.9rem; transition: border-color var(--ease);">
+                            <!-- Populated programmatically -->
+                        </select>
+
+                        <button class="btn-nav" id="nextMonthBtn" aria-label="Next Month">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Calendar Month Workspace -->
+                <section class="calendar-workspace">
+                    <!-- Days of Week Header Grid -->
+                    <div class="weekdays-grid">
+                        <div class="weekday-cell">Sun</div>
+                        <div class="weekday-cell">Mon</div>
+                        <div class="weekday-cell">Tue</div>
+                        <div class="weekday-cell">Wed</div>
+                        <div class="weekday-cell">Thu</div>
+                        <div class="weekday-cell">Fri</div>
+                        <div class="weekday-cell">Sat</div>
+                    </div>
+
+                    <!-- Days grid dynamic container -->
+                    <div class="calendar-grid" id="calendarDaysGrid">
+                        <!-- Loaded dynamically via calendar.js -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- Day Updates View Container (Full Page) -->
+            <div id="dayViewContainer" style="display: none; padding: 0 1.5rem 2.5rem 0; height: 100%; overflow-y: auto; animation: fadeIn 0.25s ease;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2rem;">
+                    <div>
+                        <button class="btn btn-secondary" id="backToCalendarBtn" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.9rem; margin-bottom: 1.5rem; width: auto; box-shadow: none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                            <span>Back to Calendar</span>
+                        </button>
+                        <h1 id="dayUpdatesTitle" style="font-family: var(--font-title); font-size: 1.8rem; font-weight: 700; color: var(--text); margin: 0;">Updates for August 22, 2026</h1>
+                    </div>
+                    
+                    <button class="btn btn-primary" id="addUpdateBtn" style="display: flex; align-items: center; gap: 0.5rem; width: auto; padding: 0.75rem 1.5rem; height: auto;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>Add Update</span>
+                    </button>
+                </div>
+
+                <!-- Scrollable updates list container -->
+                <div style="margin-top: 1.5rem;">
+                    <ul class="day-updates-list" id="dayUpdatesList" style="list-style: none; display: flex; flex-direction: column; gap: 1.25rem; padding: 0;">
+                        <!-- Loaded dynamically -->
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Event Detail Dialog Modal Overlay -->
+    <div class="modal-overlay" id="eventModalOverlay">
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <h2 id="modalTitle">CREATE UPDATES</h2>
+                <button class="btn-close" id="modalCloseBtn" aria-label="Close modal">&times;</button>
+            </div>
+
+            <form id="eventForm" novalidate>
+                <input type="hidden" id="eventId">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="eventTokenId">Token ID</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <input type="text" id="eventTokenId" placeholder="e.g. T-1001" style="padding-left: 1rem;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="eventTitle">Subject</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <input type="text" id="eventTitle" placeholder="e.g. Update Subject"
+                                style="padding-left: 1rem;" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="eventDescription">Content</label>
+                    <textarea id="eventDescription" placeholder="Add content..."
+                        style="width: 100%; min-height: 80px; padding: 0.72rem 1rem; border: 1px solid var(--border); border-radius: var(--control-radius); outline: none; color: var(--text); background: var(--surface-input); font-family: var(--font-body); font-size: 0.9rem; transition: border-color var(--ease), background var(--ease); resize: vertical;"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="eventMemberId">Assign</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <select id="eventMemberId"
+                                style="padding-left: 1rem; width: 100%; height: 46px; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-input); color: var(--text); outline: none; transition: border-color var(--ease);">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="eventStatus">Status</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <select id="eventStatus"
+                                style="padding-left: 1rem; width: 100%; height: 46px; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-input); color: var(--text); outline: none; transition: border-color var(--ease);">
+                                <option value="progress">Progress</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label>Attachments</label>
+                    <div class="image-upload-zone" id="imageUploadZone">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span>Click to Upload or Paste Image (Ctrl+V)</span>
+                        <input type="file" id="imageFileInput" multiple accept="image/*" style="display: none;">
+                    </div>
+                    <div class="attached-images-preview" id="attachedImagesPreview"></div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-delete hidden" id="deleteEventBtn">Delete</button>
+                    <button type="button" class="btn btn-secondary" id="cancelEventBtn"
+                        style="box-shadow: none;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEventBtn"
+                        style="width: auto; padding: 0 1.5rem;">Save Event</button>
+                </div>
+            </form>
+
+            <div id="eventDetailsView" class="hidden">
+                <div class="details-grid">
+                    <div class="details-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="details-group">
+                            <span class="details-label">Token ID</span>
+                            <span class="details-value" id="detailsTokenId"></span>
+                        </div>
+                        <div class="details-group">
+                            <span class="details-label">Subject</span>
+                            <span class="details-value" id="detailsSubject"></span>
+                        </div>
+                    </div>
+                    <div class="details-group" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.45rem;">
+                        <span class="details-label">Content</span>
+                        <div class="details-value-content" id="detailsContent"></div>
+                    </div>
+                    <div class="details-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                        <div class="details-group">
+                            <span class="details-label">Assignee</span>
+                            <span class="details-value" id="detailsAssignee"></span>
+                        </div>
+                        <div class="details-group">
+                            <span class="details-label">Status</span>
+                            <span class="details-value" id="detailsStatus"></span>
+                        </div>
+                    </div>
+                    <div class="details-group" id="detailsImagesGroup" style="margin-top: 1.25rem; display: none; flex-direction: column; gap: 0.45rem;">
+                        <span class="details-label">Attachments</span>
+                        <div class="details-images-list" id="detailsImagesList"></div>
+                    </div>
+                </div>
+                <div class="form-actions" style="margin-top: 2rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" id="closeDetailsBtn"
+                        style="box-shadow: none; width: auto; padding: 0 2rem;">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal Viewer -->
+    <div class="lightbox-overlay" id="lightboxOverlay">
+        <button class="lightbox-close" id="lightboxClose" aria-label="Close lightbox">&times;</button>
+        <button class="lightbox-prev" id="lightboxPrev" aria-label="Previous image">&lt;</button>
+        <div class="lightbox-content-wrapper" id="lightboxContentWrapper">
+            <!-- Lightbox slides loaded dynamically -->
+        </div>
+        <button class="lightbox-next" id="lightboxNext" aria-label="Next image">&gt;</button>
+        <div class="lightbox-counter" id="lightboxCounter">1 / 1</div>
+    </div>
+
+    <!-- Core logic script -->
+    <script src="calendar.js"></script>
+</body>
+
+</html>
