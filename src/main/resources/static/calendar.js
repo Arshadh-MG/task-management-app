@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backToCalendarBtn = document.getElementById('backToCalendarBtn');
     const dayUpdatesTitle = document.getElementById('dayUpdatesTitle');
     const addUpdateBtn = document.getElementById('addUpdateBtn');
+    const productFilterSelect = document.getElementById('productFilterSelect');
     const dayUpdatesList = document.getElementById('dayUpdatesList');
 
     // Read-only Details elements
@@ -95,10 +96,13 @@ document.addEventListener('DOMContentLoaded', () => {
         theme: localStorage.getItem('lms_portal_theme') || 'dark',
         currentDate: new Date(), // Active month/year view
         events: [],              // All events loaded from backend
+        products: [],            // List of available products
         activeFilter: 'all',     // Active color category filter
+        selectedProductFilter: 'all', // Active product filter for day updates
         selectedDate: '',        // Stored date for create operation
         users: [],               // Cached list of registered users
-        attachedImages: []       // Base64 image strings currently attached to form
+        attachedImages: [],      // Base64 image strings currently attached to form
+        activeInlineId: null     // ID of event currently edited inline, or 'NEW'
     };
 
     // --- INITIALIZE VIEWS ---
@@ -142,9 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Fetch initial event list and online users
+    // Fetch initial event list, online users, and products
     fetchEvents();
     fetchOnlineUsers();
+    fetchProducts();
 
     // --- THEME MANAGEMENT ---
     themeToggleBtn?.addEventListener('click', () => {
@@ -323,69 +328,94 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- UPCOMING EVENTS SIDEBAR LOGIC ---
+    // --- PROGRESS EVENTS SIDEBAR LOGIC (Grouped by Product) ---
     function updateUpcomingEvents() {
+        if (!upcomingEventsList) return;
         upcomingEventsList.innerHTML = '';
         
-        const todayStr = formatDateStr(new Date());
-        
-        // Filter and sort events (all progress events, newest first)
-        const upcoming = state.events
-            .filter(e => e.status === 'progress')
-            .sort((a, b) => {
-                if (a.event_date !== b.event_date) {
-                    return b.event_date.localeCompare(a.event_date);
-                }
-                return (b.id || 0) - (a.id || 0);
-            });
+        // Filter progress events
+        const progressEvents = state.events.filter(e => e.status === 'progress');
 
-        if (upcoming.length === 0) {
-            upcomingEventsList.appendChild(noUpcomingText || createNoUpcomingListItem());
+        if (progressEvents.length === 0 && state.products.length === 0) {
+            upcomingEventsList.appendChild(createNoUpcomingListItem('No progress events'));
             return;
         }
 
-        upcoming.forEach(evt => {
-            const li = document.createElement('li');
-            li.classList.add('upcoming-item', `cat-${evt.color}`);
-            
-            const displayDate = new Date(evt.event_date).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric'
-            });
+        // Map counts by product
+        const productCounts = {};
+        state.products.forEach(p => {
+            productCounts[p.id] = { name: p.name, count: 0 };
+        });
 
-            const displayTime = evt.start_time ? formatTime(evt.start_time) : 'All Day';
+        let unassignedCount = 0;
 
-            let assignedName = '';
-            if (evt.member_id) {
-                const foundUser = state.users.find(u => u.id === evt.member_id);
-                if (foundUser) {
-                    assignedName = ` (Assigned: ${foundUser.full_name})`;
+        progressEvents.forEach(evt => {
+            if (evt.product_id && productCounts[evt.product_id]) {
+                productCounts[evt.product_id].count++;
+            } else if (evt.product_name) {
+                const found = state.products.find(p => p.name === evt.product_name);
+                if (found) {
+                    productCounts[found.id].count++;
+                } else {
+                    unassignedCount++;
                 }
+            } else {
+                unassignedCount++;
             }
-            const titleDisplay = (evt.token_id ? `[${evt.token_id}] ` : '') + evt.title + assignedName;
-            const timeLabel = evt.start_time ? ` @ ${formatTime(evt.start_time)}` : '';
-            const statusText = evt.status ? evt.status.charAt(0).toUpperCase() + evt.status.slice(1) : 'Progress';
-            const statusClass = evt.status === 'completed' ? 'status-badge-completed' : 'status-badge-progress';
+        });
+
+        const productItems = Object.values(productCounts);
+
+        if (productItems.length === 0 && unassignedCount === 0) {
+            upcomingEventsList.appendChild(createNoUpcomingListItem('No progress events'));
+            return;
+        }
+
+        productItems.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'upcoming-item';
+            li.style.display = 'flex';
+            li.style.alignItems = 'center';
+            li.style.justifyContent = 'space-between';
+            li.style.padding = '0.6rem 0.3rem';
+            li.style.background = 'transparent';
+            li.style.border = 'none';
+            li.style.borderBottom = '1px solid var(--border)';
+            li.style.marginBottom = '0';
+            li.style.borderRadius = '0';
+
             li.innerHTML = `
-                <div class="upcoming-title">${titleDisplay}</div>
-                <div class="upcoming-time" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <div style="display: flex; align-items: center; gap: 0.35rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span>${displayDate}${timeLabel}</span>
-                    </div>
-                    <span class="day-update-status ${statusClass}" style="font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; text-transform: capitalize;">${statusText}</span>
+                <div style="font-weight: 600; color: var(--text); font-size: 0.92rem;">${item.name}</div>
+                <div style="font-weight: 800; color: var(--accent); background: rgba(96, 165, 250, 0.15); padding: 0.2rem 0.65rem; border-radius: 20px; font-size: 1.05rem; min-width: 30px; text-align: center; white-space: nowrap;">
+                    ${item.count}
                 </div>
             `;
-            if (evt.subject) {
-                li.title = `Subject: ${evt.subject}`;
-            }
-
-            li.addEventListener('click', () => {
-                openEditEventModal(evt);
-            });
 
             upcomingEventsList.appendChild(li);
         });
+
+        if (unassignedCount > 0) {
+            const li = document.createElement('li');
+            li.className = 'upcoming-item';
+            li.style.display = 'flex';
+            li.style.alignItems = 'center';
+            li.style.justifyContent = 'space-between';
+            li.style.padding = '0.6rem 0.3rem';
+            li.style.background = 'transparent';
+            li.style.border = 'none';
+            li.style.borderBottom = '1px solid var(--border)';
+            li.style.marginBottom = '0';
+            li.style.borderRadius = '0';
+
+            li.innerHTML = `
+                <div style="font-weight: 600; color: var(--muted); font-size: 0.92rem;">Unassigned Product</div>
+                <div style="font-weight: 800; color: var(--muted); background: rgba(148, 163, 184, 0.15); padding: 0.2rem 0.65rem; border-radius: 20px; font-size: 1.05rem; min-width: 30px; text-align: center; white-space: nowrap;">
+                    ${unassignedCount}
+                </div>
+            `;
+
+            upcomingEventsList.appendChild(li);
+        }
     }
 
     function createNoUpcomingListItem() {
@@ -439,17 +469,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Window level clipboard paste event listener
     window.addEventListener('paste', (e) => {
-        // Only trigger if the modal overlay is active and we are NOT in read-only details view
-        if (!eventModalOverlay.classList.contains('active') || !eventDetailsView.classList.contains('hidden')) {
+        const inlineCard = document.querySelector('.inline-edit-card');
+        const isModalActive = eventModalOverlay && eventModalOverlay.classList.contains('active') && eventDetailsView && eventDetailsView.classList.contains('hidden');
+        
+        if (!inlineCard && !isModalActive) {
             return;
         }
+
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
         for (const item of items) {
             if (item.type.indexOf('image') !== -1) {
                 const blob = item.getAsFile();
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    addAttachedImage(event.target.result);
+                    if (inlineCard) {
+                        const previewContainer = inlineCard.querySelector('.inline-images-preview');
+                        if (previewContainer) {
+                            const container = document.createElement('div');
+                            container.className = 'preview-img-container';
+                            const image = document.createElement('img');
+                            image.src = event.target.result;
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.innerHTML = '&times;';
+                            deleteBtn.type = 'button';
+                            deleteBtn.className = 'delete-preview-btn';
+                            deleteBtn.addEventListener('click', (ev) => {
+                                ev.stopPropagation();
+                                container.remove();
+                            });
+                            container.appendChild(image);
+                            container.appendChild(deleteBtn);
+                            previewContainer.appendChild(container);
+                        }
+                    } else {
+                        addAttachedImage(event.target.result);
+                    }
                 };
                 reader.readAsDataURL(blob);
             }
@@ -615,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- DAY UPDATES FULL PAGE VIEW ---
+    // --- DAY UPDATES FULL PAGE VIEW & INLINE EDITING ---
     function openDayUpdatesModal(dateStr) {
         state.selectedDate = dateStr;
         
@@ -628,41 +682,295 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         dayUpdatesTitle.textContent = `Updates for ${formattedDate}`;
 
+        state.activeInlineId = null;
         renderDayUpdatesList(dateStr);
         
         // Toggle view container visibilities
         calendarViewContainer.style.display = 'none';
         dayViewContainer.style.display = 'block';
+        dayViewContainer.scrollTop = 0;
     }
 
     function closeDayUpdatesModal() {
         calendarViewContainer.style.display = 'flex';
         dayViewContainer.style.display = 'none';
+        state.activeInlineId = null;
     }
 
     backToCalendarBtn?.addEventListener('click', closeDayUpdatesModal);
 
-    // Add Update Option button triggers the CREATE UPDATES modal form
+    // Add Update button creates an inline blank update card at the top
     addUpdateBtn?.addEventListener('click', () => {
-        openCreateEventModal(state.selectedDate);
+        if (state.activeInlineId !== null) {
+            const existingCard = dayUpdatesList?.querySelector('.inline-edit-card');
+            if (existingCard) {
+                dayViewContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+                const contentInp = existingCard.querySelector('.inline-content');
+                if (contentInp) contentInp.focus();
+                return;
+            }
+        }
+        state.activeInlineId = 'NEW';
+        renderDayUpdatesList(state.selectedDate);
+
+        const newCard = dayUpdatesList?.querySelector('.inline-edit-card');
+        if (newCard) {
+            dayViewContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+            const contentInp = newCard.querySelector('.inline-content');
+            if (contentInp) contentInp.focus();
+        }
     });
+
+    function renderInlineFormCard(evt = null) {
+        const isNew = !evt;
+        const initialContent = isNew ? '' : (evt.description || evt.title || '');
+        const initialMemberId = isNew ? '' : (evt.member_id || '');
+        const initialStatus = isNew ? 'progress' : (evt.status || 'progress');
+        const initialProductId = isNew ? '' : (evt.product_id || '');
+
+        let inlineImages = [];
+        if (!isNew && evt.images) {
+            try {
+                inlineImages = JSON.parse(evt.images);
+            } catch (e) {
+                console.error('Failed to parse images:', e);
+            }
+        }
+
+        const card = document.createElement('li');
+        card.className = 'day-update-card inline-edit-card';
+        card.style.border = '2px solid var(--accent)';
+        card.style.padding = '0.55rem 0.75rem';
+        card.style.background = 'var(--surface-strong)';
+        card.style.marginBottom = '0.5rem';
+
+        // Build Assign options
+        let assignOptionsHtml = '<option value="">-- Select Member --</option>';
+        state.users.forEach(u => {
+            const isSelected = String(u.id) === String(initialMemberId) ? 'selected' : '';
+            assignOptionsHtml += `<option value="${u.id}" ${isSelected}>${u.full_name}</option>`;
+        });
+
+        // Build Product options
+        let productOptionsHtml = '<option value="">-- Select Product --</option>';
+        state.products.forEach(p => {
+            const isSelected = String(p.id) === String(initialProductId) ? 'selected' : '';
+            productOptionsHtml += `<option value="${p.id}" ${isSelected}>${p.name}</option>`;
+        });
+
+        card.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+                <span style="font-family: var(--font-title); font-weight: 700; font-size: 0.88rem; color: var(--accent);">
+                    ${isNew ? 'Add New Update' : 'Edit Update'}
+                </span>
+                <span style="font-size: 0.72rem; color: var(--muted);">Fields marked with * are mandatory</span>
+            </div>
+
+            <!-- Single Blank Content Field -->
+            <div style="margin-bottom: 0.35rem;">
+                <textarea class="inline-content" placeholder="Enter update details here..." style="width: 100%; min-height: 70px; height: 80px; padding: 0.5rem 0.65rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-input); color: var(--text); outline: none; resize: vertical; font-family: var(--font-body);">${initialContent}</textarea>
+            </div>
+
+            <!-- Single Row: Controls (Left) | Action Buttons (Right) -->
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.25rem;">
+                <div style="display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap;">
+                    <div style="width: 170px;">
+                        <label style="display: block; font-size: 0.71rem; font-weight: 600; color: var(--muted); margin-bottom: 0.1rem;">Assign *</label>
+                        <select class="inline-assign" style="width: 100%; height: 28px; padding: 0 0.4rem; font-size: 0.78rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-input); color: var(--text); outline: none;">
+                            ${assignOptionsHtml}
+                        </select>
+                    </div>
+                    <div style="width: 120px;">
+                        <label style="display: block; font-size: 0.71rem; font-weight: 600; color: var(--muted); margin-bottom: 0.1rem;">Status *</label>
+                        <select class="inline-status" style="width: 100%; height: 28px; padding: 0 0.4rem; font-size: 0.78rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-input); color: var(--text); outline: none;">
+                            <option value="">-- Select --</option>
+                            <option value="progress" ${initialStatus === 'progress' ? 'selected' : ''}>Progress</option>
+                            <option value="completed" ${initialStatus === 'completed' ? 'selected' : ''}>Completed</option>
+                        </select>
+                    </div>
+                    <div style="width: 150px;">
+                        <label style="display: block; font-size: 0.71rem; font-weight: 600; color: var(--muted); margin-bottom: 0.1rem;">Product *</label>
+                        <select class="inline-product" style="width: 100%; height: 28px; padding: 0 0.4rem; font-size: 0.78rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-input); color: var(--text); outline: none;">
+                            ${productOptionsHtml}
+                        </select>
+                    </div>
+                    <div style="width: auto;">
+                        <label style="display: block; font-size: 0.71rem; font-weight: 600; color: var(--muted); margin-bottom: 0.1rem;">Attachment</label>
+                        <div class="image-upload-zone inline-upload-zone" title="Attach image or Paste (Ctrl+V)" style="padding: 0 0.65rem; height: 28px; font-size: 0.76rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; border: 1px solid var(--border); border-radius: var(--control-radius); cursor: pointer; background: var(--surface-input); color: var(--accent); font-weight: 600; transition: all var(--ease);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <span>Attach</span>
+                            <input type="file" class="inline-file-input" multiple accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons aligned on the right side of same row -->
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <button type="button" class="btn btn-secondary inline-cancel-btn" style="width: auto; height: 28px; padding: 0.2rem 0.8rem; font-size: 0.76rem; box-shadow: none;">Cancel</button>
+                    <button type="button" class="btn btn-primary inline-save-btn" style="width: auto; height: 28px; padding: 0.2rem 1rem; font-size: 0.76rem;">
+                        ${isNew ? 'Save' : 'Save/Update'}
+                    </button>
+                </div>
+            </div>
+            <div class="attached-images-preview inline-images-preview" style="margin-bottom: 0.25rem;"></div>
+
+            <div class="inline-error-msg" style="display: none; color: var(--danger); font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; padding: 0.25rem 0.5rem; background: var(--danger-bg); border-radius: 6px; border: 1px solid var(--danger);"></div>
+        `;
+
+        let attachedImages = [...inlineImages];
+        const previewContainer = card.querySelector('.inline-images-preview');
+        const uploadZone = card.querySelector('.inline-upload-zone');
+        const fileInput = card.querySelector('.inline-file-input');
+        const errorMsgEl = card.querySelector('.inline-error-msg');
+
+        function renderPreviews() {
+            previewContainer.innerHTML = '';
+            attachedImages.forEach((img, idx) => {
+                const container = document.createElement('div');
+                container.className = 'preview-img-container';
+                const image = document.createElement('img');
+                image.src = img;
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'delete-preview-btn';
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    attachedImages.splice(idx, 1);
+                    renderPreviews();
+                });
+                container.appendChild(image);
+                container.appendChild(deleteBtn);
+                previewContainer.appendChild(container);
+            });
+        }
+
+        renderPreviews();
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    attachedImages.push(ev.target.result);
+                    renderPreviews();
+                };
+                reader.readAsDataURL(file);
+            });
+            fileInput.value = '';
+        });
+
+        // Save button handler
+        const saveBtn = card.querySelector('.inline-save-btn');
+        saveBtn.addEventListener('click', () => {
+            errorMsgEl.style.display = 'none';
+
+            const content = card.querySelector('.inline-content').value.trim();
+            const memberId = card.querySelector('.inline-assign').value;
+            const status = card.querySelector('.inline-status').value;
+            const productId = card.querySelector('.inline-product').value;
+
+            // Validate mandatory fields
+            const missingFields = [];
+            if (!memberId) missingFields.push('Assign');
+            if (!status) missingFields.push('Status');
+            if (!productId) missingFields.push('Product');
+
+            if (missingFields.length > 0) {
+                errorMsgEl.textContent = `Please select mandatory fields: ${missingFields.join(', ')}.`;
+                errorMsgEl.style.display = 'block';
+                return;
+            }
+
+            const payload = {
+                userId: currentUser.userId,
+                title: content || 'Update',
+                description: content,
+                tokenId: '',
+                memberId: parseInt(memberId),
+                status: status,
+                productId: parseInt(productId),
+                eventDate: state.selectedDate,
+                images: JSON.stringify(attachedImages)
+            };
+
+            if (!isNew && evt && evt.id) {
+                payload.id = evt.id;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            fetch('/api/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(async response => {
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Failed to save update.');
+                return result;
+            })
+            .then(() => {
+                state.activeInlineId = null;
+                fetchEvents(() => {
+                    fetchProducts(() => {
+                        renderDayUpdatesList(state.selectedDate);
+                    });
+                });
+            })
+            .catch(err => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = isNew ? 'Save' : 'Save/Update';
+                errorMsgEl.textContent = err.message || 'Error saving update.';
+                errorMsgEl.style.display = 'block';
+            });
+        });
+
+        // Cancel button handler
+        const cancelBtn = card.querySelector('.inline-cancel-btn');
+        cancelBtn.addEventListener('click', () => {
+            state.activeInlineId = null;
+            renderDayUpdatesList(state.selectedDate);
+        });
+
+        return card;
+    }
 
     function renderDayUpdatesList(dateStr) {
         dayUpdatesList.innerHTML = '';
         const todayStr = formatDateStr(new Date());
         const dayEvents = state.events.filter(e => {
+            let matchesDate = false;
             if (e.status === 'completed') {
-                return e.event_date === dateStr;
+                matchesDate = (e.event_date === dateStr);
             } else { // progress
                 if (e.event_date >= todayStr) {
-                    return e.event_date === dateStr;
+                    matchesDate = (e.event_date === dateStr);
                 } else {
-                    return dateStr === todayStr;
+                    matchesDate = (dateStr === todayStr);
                 }
             }
+
+            if (!matchesDate) return false;
+
+            if (!state.selectedProductFilter || state.selectedProductFilter === 'all') {
+                return true;
+            }
+
+            return String(e.product_id) === String(state.selectedProductFilter) || 
+                   (e.product_name && e.product_name === state.selectedProductFilter);
         });
 
-        if (dayEvents.length === 0) {
+        // 1. If inline add card is active ('NEW'), insert inline form card at top
+        if (state.activeInlineId === 'NEW') {
+            const inlineCard = renderInlineFormCard(null);
+            dayUpdatesList.appendChild(inlineCard);
+        }
+
+        if (dayEvents.length === 0 && state.activeInlineId !== 'NEW') {
             const li = document.createElement('li');
             li.classList.add('subtitle');
             li.style.padding = '1.5rem 0.5rem';
@@ -673,14 +981,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         dayEvents.forEach(evt => {
+            // 2. If this event is being edited inline, render inline form card for it
+            if (state.activeInlineId === evt.id) {
+                const inlineEditCard = renderInlineFormCard(evt);
+                dayUpdatesList.appendChild(inlineEditCard);
+                return;
+            }
+
             const li = document.createElement('li');
             li.className = 'day-update-card';
 
             const statusClass = evt.status === 'completed' ? 'status-badge-completed' : 'status-badge-progress';
             const statusText = evt.status === 'completed' ? 'Completed' : 'In Progress';
 
-            // Find assignee
-            let assigneeHtml = '<span class="day-update-assignee">Unassigned</span>';
+            // Assignee info
+            let assigneeHtml = '<span class="day-update-assignee">Unassigned Member</span>';
             if (evt.member_id) {
                 const assignedUser = state.users.find(u => u.id === evt.member_id);
                 if (assignedUser) {
@@ -694,30 +1009,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const isProgress = evt.status === 'progress';
+            // Token ID badge (omit if missing/empty)
+            const tokenIdHtml = evt.token_id ? `<span class="day-update-token">${evt.token_id}</span>` : '';
 
-            // View button only for progress; edit pencil for all
-            const viewBtnHtml = isProgress ? `
+            // Product Badge
+            let productBadgeHtml = '';
+            if (evt.product_name) {
+                productBadgeHtml = `<span class="day-update-token" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168,85,247,0.3);">${evt.product_name}</span>`;
+            }
+
+            // View button
+            const viewBtnHtml = `
                 <button class="btn-icon btn-view" title="View Details">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
-            ` : '';
+            `;
 
-            // Edit button — always visible
+            // Edit button (pencil icon)
             const editBtnHtml = `
                 <button class="btn-icon btn-edit" title="Edit Update" style="color: var(--accent);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </button>
             `;
 
-            // Delete button — always visible, no confirm
+            // Delete button (trashcan icon)
             const deleteBtnHtml = `
                 <button class="btn-icon btn-delete-event" title="Delete Update" style="color: var(--danger);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                 </button>
             `;
 
-            // Parse images if any
+            // Parse images
             let imageList = [];
             if (evt.images) {
                 try {
@@ -736,13 +1058,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 imagesHtml += '</div>';
             }
 
+            let contentBodyHtml = '';
+            const titleStr = (evt.title || '').trim();
+            const descStr = (evt.description || '').trim();
+            const mainContent = descStr || titleStr || 'No content details provided.';
+
+            if (descStr && titleStr && descStr !== titleStr && titleStr.length <= 60 && titleStr !== 'Update') {
+                contentBodyHtml = `
+                    <div class="day-update-subject">${titleStr}</div>
+                    <div class="day-update-content">${descStr}</div>
+                `;
+            } else {
+                contentBodyHtml = `
+                    <div class="day-update-content" style="font-size: 0.88rem; line-height: 1.5; color: var(--text); font-weight: 500; margin-bottom: 0.4rem;">${mainContent}</div>
+                `;
+            }
+
+            const isCompleted = evt.status === 'completed';
+            const radioColor = isCompleted ? '#10b981' : '#f59e0b';
+
             li.innerHTML = `
                 <div class="day-update-header">
-                    <span class="day-update-token">${evt.token_id || 'No Token'}</span>
-                    <span class="day-update-status ${statusClass}">${statusText}</span>
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                        ${tokenIdHtml}
+                        ${productBadgeHtml}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span class="day-update-status ${statusClass}">${statusText}</span>
+                        <span class="status-radio-circle-btn ${isCompleted ? 'is-completed' : 'is-progress'}" data-event-id="${evt.id}" role="button" tabindex="0" title="Click to toggle status (Yellow: In Progress | Green: Completed)" onclick="event.stopPropagation();">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block; pointer-events:none;">
+                                <circle cx="12" cy="12" r="9" stroke="${radioColor}" stroke-width="2.5" fill="none"/>
+                                <circle cx="12" cy="12" r="5" fill="${radioColor}"/>
+                            </svg>
+                        </span>
+                    </div>
                 </div>
-                <div class="day-update-subject">${evt.title}</div>
-                <div class="day-update-content">${evt.description || 'No content details provided.'}</div>
+                ${contentBodyHtml}
                 ${imagesHtml}
                 <div class="day-update-footer">
                     ${assigneeHtml}
@@ -754,29 +1105,73 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // Wire VIEW button (progress cards)
+            // Wire single radio button click -> switch status
+            const radioBtn = li.querySelector('.status-radio-circle-btn');
+            if (radioBtn) {
+                radioBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const eventId = radioBtn.getAttribute('data-event-id');
+                    const currentlyCompleted = radioBtn.classList.contains('is-completed');
+                    const newStatus = currentlyCompleted ? 'progress' : 'completed';
+
+                    // Instant UI update
+                    const evObj = state.events.find(ev => String(ev.id) === String(eventId));
+                    if (evObj) {
+                        evObj.status = newStatus;
+                    }
+                    renderCalendar();
+                    updateUpcomingEvents();
+                    renderDayUpdatesList(state.selectedDate);
+
+                    // Sync with database
+                    fetch(`/api/events/${eventId}/status?status=${newStatus}`, {
+                        method: 'POST'
+                    })
+                    .then(async response => {
+                        const res = await response.json();
+                        if (!response.ok) throw new Error(res.error || 'Failed to update status.');
+                        return res;
+                    })
+                    .then(() => {
+                        fetchEvents(() => {
+                            renderDayUpdatesList(state.selectedDate);
+                        });
+                    })
+                    .catch(err => {
+                        console.error('Status update failed:', err);
+                        alert(err.message || 'Status update failed.');
+                        fetchEvents(() => {
+                            renderDayUpdatesList(state.selectedDate);
+                        });
+                    });
+                });
+            }
+
+            // Wire VIEW button
             const viewBtn = li.querySelector('.btn-view');
             if (viewBtn) {
                 viewBtn.addEventListener('click', () => openEditEventModal(evt));
             }
 
-            // Wire EDIT button — opens form in edit mode
+            // Wire EDIT button -> set activeInlineId and re-render
             const editBtn = li.querySelector('.btn-edit');
             if (editBtn) {
                 editBtn.addEventListener('click', () => {
-                    // Force edit mode regardless of status
-                    const editableEvt = { ...evt, status: 'completed' };
-                    openEditEventModal(editableEvt);
+                    state.activeInlineId = evt.id;
+                    renderDayUpdatesList(dateStr);
                 });
             }
 
-            // Wire DELETE button — immediate delete, no confirm
+            // Wire DELETE button -> immediate alertless delete
             const delBtn = li.querySelector('.btn-delete-event');
             if (delBtn) {
-                delBtn.addEventListener('click', () => deleteEventImmediate(evt.id));
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteEventImmediate(evt.id);
+                });
             }
 
-            // Wire click event on thumbnails to open lightbox
+            // Wire image thumbnails click -> lightbox
             li.querySelectorAll('.day-update-thumb').forEach(thumb => {
                 thumb.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -822,87 +1217,58 @@ document.addEventListener('DOMContentLoaded', () => {
         eventTitleInput.focus();
     }
 
-    // --- EDIT EVENT MODAL ---
+    // --- VIEW UPDATE DETAILS MODAL ---
     function openEditEventModal(eventObj) {
-        const isProgress = eventObj.status === 'progress';
-        
-        modalTitle.textContent = isProgress ? "VIEW UPDATE DETAILS" : "CREATE UPDATES";
+        modalTitle.textContent = "VIEW UPDATE DETAILS";
         eventIdInput.value = eventObj.id;
         state.selectedDate = eventObj.event_date;
 
-        if (isProgress) {
-            // View Update Details mode
-            setModalMode(true);
+        // View Update Details mode
+        setModalMode(true);
 
-            detailsTokenId.textContent = eventObj.token_id || 'No Token';
-            detailsSubject.textContent = eventObj.title;
-            detailsContent.textContent = eventObj.description || 'No content details provided.';
+        if (detailsTokenId) detailsTokenId.textContent = eventObj.token_id || '';
+        if (detailsSubject) detailsSubject.textContent = eventObj.title || '';
+        detailsContent.textContent = eventObj.description || eventObj.title || 'No content details provided.';
 
-            // Find assignee name
-            let assigneeName = 'Unassigned';
-            if (eventObj.member_id) {
-                const assignedUser = state.users.find(u => u.id === eventObj.member_id);
-                if (assignedUser) {
-                    assigneeName = assignedUser.full_name;
-                }
+        // Find assignee name
+        let assigneeName = 'Unassigned';
+        if (eventObj.member_id) {
+            const assignedUser = state.users.find(u => u.id === eventObj.member_id);
+            if (assignedUser) {
+                assigneeName = assignedUser.full_name;
             }
-            detailsAssignee.textContent = assigneeName;
-            detailsStatus.textContent = eventObj.status === 'completed' ? 'Completed' : 'In Progress';
+        }
+        detailsAssignee.textContent = assigneeName;
+        detailsStatus.textContent = eventObj.status === 'completed' ? 'Completed' : 'In Progress';
 
-            // Show images if any
-            let imageList = [];
-            if (eventObj.images) {
-                try {
-                    imageList = JSON.parse(eventObj.images);
-                } catch(e) {
-                    console.error("Failed to parse event images:", e);
-                }
+        // Show images if any
+        let imageList = [];
+        if (eventObj.images) {
+            try {
+                imageList = JSON.parse(eventObj.images);
+            } catch(e) {
+                console.error("Failed to parse event images:", e);
             }
+        }
 
-            if (Array.isArray(imageList) && imageList.length > 0) {
-                detailsImagesGroup.style.display = 'flex';
-                detailsImagesList.innerHTML = '';
-                imageList.forEach((img, idx) => {
-                    const imgThumb = document.createElement('img');
-                    imgThumb.src = img;
-                    imgThumb.className = 'day-update-thumb';
-                    imgThumb.addEventListener('click', () => {
-                        openLightbox(imageList, idx);
-                    });
-                    detailsImagesList.appendChild(imgThumb);
+        if (Array.isArray(imageList) && imageList.length > 0) {
+            detailsImagesGroup.style.display = 'flex';
+            detailsImagesList.innerHTML = '';
+            imageList.forEach((img, idx) => {
+                const imgThumb = document.createElement('img');
+                imgThumb.src = img;
+                imgThumb.className = 'day-update-thumb';
+                imgThumb.addEventListener('click', () => {
+                    openLightbox(imageList, idx);
                 });
-            } else {
-                detailsImagesGroup.style.display = 'none';
-            }
+                detailsImagesList.appendChild(imgThumb);
+            });
         } else {
-            // Edit mode
-            setModalMode(false);
-
-            eventTokenIdInput.value = eventObj.token_id || '';
-            eventTitleInput.value = eventObj.title;
-            eventDescriptionInput.value = eventObj.description || '';
-            if (eventMemberIdSelect) eventMemberIdSelect.value = eventObj.member_id || '';
-            if (eventStatusSelect) eventStatusSelect.value = eventObj.status || 'progress';
-
-            // Load attachments
-            let imageList = [];
-            if (eventObj.images) {
-                try {
-                    imageList = JSON.parse(eventObj.images);
-                } catch(e) {
-                    console.error("Failed to parse event images:", e);
-                }
-            }
-            state.attachedImages = Array.isArray(imageList) ? [...imageList] : [];
-            renderAttachedImagesPreviews();
-
-            deleteEventBtn.classList.remove('hidden');
+            detailsImagesGroup.style.display = 'none';
         }
 
+        deleteEventBtn.classList.add('hidden');
         openModal();
-        if (!isProgress) {
-            eventTitleInput.focus();
-        }
     }
 
     // --- EVENT SAVE ACTION (CREATE / UPDATE) ---
@@ -1004,7 +1370,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     });
 
-    // --- IMMEDIATE CARD DELETE (no confirm, no modal) ---
+    // --- IMMEDIATE CARD DELETE ---
     function deleteEventImmediate(eventId) {
         fetch(`/api/events?id=${eventId}&userId=${currentUser.userId}`, {
             method: 'DELETE'
@@ -1015,16 +1381,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 return result;
             })
             .then(() => {
+                state.activeInlineId = null;
                 fetchEvents(() => {
-                    openDayUpdatesModal(state.selectedDate);
+                    fetchProducts(() => {
+                        renderDayUpdatesList(state.selectedDate);
+                    });
                 });
             })
             .catch(error => {
-                console.error('Delete failed:', error.message);
+                alert(error.message || 'Delete failed.');
             });
     }
 
     // --- API HANDLERS ---
+    function updateProductFilterDropdown() {
+        if (!productFilterSelect) return;
+        const currentVal = state.selectedProductFilter || 'all';
+        let html = '<option value="all">All Products</option>';
+        state.products.forEach(p => {
+            const isSelected = String(p.id) === String(currentVal) || p.name === currentVal ? 'selected' : '';
+            html += `<option value="${p.id}" ${isSelected}>${p.name}</option>`;
+        });
+        productFilterSelect.innerHTML = html;
+        productFilterSelect.value = currentVal;
+    }
+
+    productFilterSelect?.addEventListener('change', (e) => {
+        state.selectedProductFilter = e.target.value;
+        renderDayUpdatesList(state.selectedDate);
+    });
+
+    function fetchProducts(callback) {
+        fetch('/api/products')
+            .then(async response => {
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Failed to fetch products.');
+                return result;
+            })
+            .then(products => {
+                state.products = products;
+                updateUpcomingEvents();
+                updateProductFilterDropdown();
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching products:', error);
+            });
+    }
+
     function fetchEvents(callback) {
         fetch(`/api/events?userId=${currentUser.userId}`)
             .then(async response => {
@@ -1035,6 +1441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 state.events = data;
                 renderCalendar();
+                updateUpcomingEvents();
                 if (typeof callback === 'function') {
                     callback();
                 }

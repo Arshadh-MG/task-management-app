@@ -30,10 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const statCardUsers = document.getElementById('statCardUsers');
     const statCardCompleted = document.getElementById('statCardCompleted');
     const statCardProgress = document.getElementById('statCardProgress');
+    const statCardProducts = document.getElementById('statCardProducts');
 
     const statUsersCount = document.getElementById('statUsersCount');
     const statCompletedCount = document.getElementById('statCompletedCount');
     const statProgressCount = document.getElementById('statProgressCount');
+    const statProductsCount = document.getElementById('statProductsCount');
+    const progressProductFilterSelect = document.getElementById('progressProductFilterSelect');
 
     // Drilldown views
     const drilldownTitle = document.getElementById('drilldownTitle');
@@ -42,8 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const usersViewContainer = document.getElementById('usersViewContainer');
     const tasksViewContainer = document.getElementById('tasksViewContainer');
+    const productsViewContainer = document.getElementById('productsViewContainer');
     const adminUsersTableBody = document.getElementById('adminUsersTableBody');
     const adminTasksList = document.getElementById('adminTasksList');
+    const adminProductsTableBody = document.getElementById('adminProductsTableBody');
+    const newProductNameInput = document.getElementById('newProductNameInput');
+    const addProductBtn = document.getElementById('addProductBtn');
 
     // Lightbox
     const lightboxOverlay = document.getElementById('lightboxOverlay');
@@ -58,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
         theme: localStorage.getItem('lms_portal_theme') || 'dark',
         users: [],
         events: [],
-        activeTab: 'users', // 'users' | 'completed' | 'progress'
+        products: [],
+        activeTab: 'users', // 'users' | 'completed' | 'progress' | 'products'
         searchQuery: ''
     };
 
@@ -102,14 +110,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FETCH DATA ---
     async function loadDashboardData() {
         try {
-            const [usersRes, eventsRes] = await Promise.all([
+            const [usersRes, eventsRes, productsRes] = await Promise.all([
                 fetch('/api/users'),
-                fetch('/api/events')
+                fetch('/api/events'),
+                fetch('/api/products')
             ]);
 
             state.users = await usersRes.json();
             state.events = await eventsRes.json();
+            state.products = await productsRes.json();
 
+            populateProductDropdown();
             updateMetrics();
             renderActiveTab();
         } catch (err) {
@@ -117,22 +128,80 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function populateProductDropdown() {
+        if (!progressProductFilterSelect) return;
+        const currentVal = progressProductFilterSelect.value || 'ALL';
+        progressProductFilterSelect.innerHTML = '<option value="ALL">All Products</option>';
+
+        const productNamesSet = new Set();
+
+        if (Array.isArray(state.products)) {
+            state.products.forEach(p => {
+                if (!p) return;
+                const name = typeof p === 'string' ? p : (p.name || p.productName);
+                if (name && typeof name === 'string' && name.trim()) {
+                    productNamesSet.add(name.trim());
+                }
+            });
+        }
+
+        if (Array.isArray(state.events)) {
+            state.events.forEach(e => {
+                const name = e.product_name || e.productName;
+                if (name && typeof name === 'string' && name.trim() && name !== 'General') {
+                    productNamesSet.add(name.trim());
+                }
+            });
+        }
+
+        productNamesSet.forEach(pName => {
+            const opt = document.createElement('option');
+            opt.value = pName;
+            opt.textContent = pName;
+            progressProductFilterSelect.appendChild(opt);
+        });
+
+        if (Array.from(progressProductFilterSelect.options).some(o => o.value === currentVal)) {
+            progressProductFilterSelect.value = currentVal;
+        } else {
+            progressProductFilterSelect.value = 'ALL';
+        }
+    }
+
     function updateMetrics() {
-        statUsersCount.textContent = state.users.length;
+        if (statUsersCount) statUsersCount.textContent = state.users.length;
+        if (statProductsCount) statProductsCount.textContent = state.products.length;
 
         const completedEvents = state.events.filter(e => e.status === 'completed');
-        const progressEvents = state.events.filter(e => e.status === 'progress');
+        if (statCompletedCount) statCompletedCount.textContent = completedEvents.length;
 
-        statCompletedCount.textContent = completedEvents.length;
-        statProgressCount.textContent = progressEvents.length;
+        let progressEvents = state.events.filter(e => e.status === 'progress');
+        const selectedProd = progressProductFilterSelect ? progressProductFilterSelect.value : 'ALL';
+
+        if (selectedProd && selectedProd !== 'ALL') {
+            progressEvents = progressEvents.filter(e => {
+                const pName = (e.product_name || e.productName || 'General').trim();
+                return pName.toLowerCase() === selectedProd.trim().toLowerCase();
+            });
+        }
+
+        if (statProgressCount) statProgressCount.textContent = progressEvents.length;
     }
+
+    progressProductFilterSelect?.addEventListener('change', () => {
+        updateMetrics();
+        if (state.activeTab === 'progress') {
+            renderTasksList();
+        }
+    });
 
     // --- TAB SWITCHING ---
     function setActiveTab(tab) {
         state.activeTab = tab;
 
         // Update card borders
-        [statCardUsers, statCardCompleted, statCardProgress].forEach(c => {
+        [statCardUsers, statCardCompleted, statCardProgress, statCardProducts].forEach(c => {
+            if (!c) return;
             c.style.borderColor = 'var(--border)';
             const indicator = c.querySelector('.card-indicator');
             if (indicator) {
@@ -142,40 +211,68 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (tab === 'users') {
-            statCardUsers.style.borderColor = 'var(--accent)';
-            const ind = statCardUsers.querySelector('.card-indicator');
-            if (ind) { ind.style.color = 'var(--accent)'; ind.textContent = 'Viewing List →'; }
-            
+            if (statCardUsers) {
+                statCardUsers.style.borderColor = 'var(--accent)';
+                const ind = statCardUsers.querySelector('.card-indicator');
+                if (ind) { ind.style.color = 'var(--accent)'; ind.textContent = 'Viewing List →'; }
+            }
             drilldownTitle.textContent = 'User Management Directory';
             drilldownSubtitle.textContent = 'Manage registered users and purge removed accounts';
-            usersViewContainer.classList.remove('hidden');
-            tasksViewContainer.classList.add('hidden');
+            usersViewContainer?.classList.remove('hidden');
+            tasksViewContainer?.classList.add('hidden');
+            productsViewContainer?.classList.add('hidden');
         } else if (tab === 'completed') {
-            statCardCompleted.style.borderColor = 'var(--success)';
-            const ind = statCardCompleted.querySelector('.card-indicator');
-            if (ind) { ind.style.color = 'var(--success)'; ind.textContent = 'Viewing List →'; }
-
+            if (statCardCompleted) {
+                statCardCompleted.style.borderColor = 'var(--success)';
+                const ind = statCardCompleted.querySelector('.card-indicator');
+                if (ind) { ind.style.color = 'var(--success)'; ind.textContent = 'Viewing List →'; }
+            }
             drilldownTitle.textContent = 'Completed Updates Overview';
             drilldownSubtitle.textContent = 'List of all tasks and updates marked as Completed';
-            usersViewContainer.classList.add('hidden');
-            tasksViewContainer.classList.remove('hidden');
+            usersViewContainer?.classList.add('hidden');
+            tasksViewContainer?.classList.remove('hidden');
+            productsViewContainer?.classList.add('hidden');
         } else if (tab === 'progress') {
-            statCardProgress.style.borderColor = '#F59E0B';
-            const ind = statCardProgress.querySelector('.card-indicator');
-            if (ind) { ind.style.color = '#F59E0B'; ind.textContent = 'Viewing List →'; }
-
+            if (statCardProgress) {
+                statCardProgress.style.borderColor = '#F59E0B';
+                const ind = statCardProgress.querySelector('.card-indicator');
+                if (ind) { ind.style.color = '#F59E0B'; ind.textContent = 'Viewing List →'; }
+            }
             drilldownTitle.textContent = 'In-Progress Tasks Overview';
             drilldownSubtitle.textContent = 'Active updates currently in progress across workspace';
-            usersViewContainer.classList.add('hidden');
-            tasksViewContainer.classList.remove('hidden');
+            usersViewContainer?.classList.add('hidden');
+            tasksViewContainer?.classList.remove('hidden');
+            productsViewContainer?.classList.add('hidden');
+        } else if (tab === 'products') {
+            if (statCardProducts) {
+                statCardProducts.style.borderColor = '#a855f7';
+                const ind = statCardProducts.querySelector('.card-indicator');
+                if (ind) { ind.style.color = '#a855f7'; ind.textContent = 'Viewing List →'; }
+            }
+            drilldownTitle.textContent = 'Product Directory & Management';
+            drilldownSubtitle.textContent = 'Add, edit, and delete workspace products for updates';
+            usersViewContainer?.classList.add('hidden');
+            tasksViewContainer?.classList.add('hidden');
+            productsViewContainer?.classList.remove('hidden');
         }
 
         renderActiveTab();
     }
 
-    statCardUsers.addEventListener('click', () => setActiveTab('users'));
-    statCardCompleted.addEventListener('click', () => setActiveTab('completed'));
-    statCardProgress.addEventListener('click', () => setActiveTab('progress'));
+    statCardUsers?.addEventListener('click', () => setActiveTab('users'));
+    statCardCompleted?.addEventListener('click', () => setActiveTab('completed'));
+    statCardProgress?.addEventListener('click', () => setActiveTab('progress'));
+    statCardProducts?.addEventListener('click', () => setActiveTab('products'));
+
+    // Add Product button handler
+    addProductBtn?.addEventListener('click', () => {
+        const productName = newProductNameInput.value.trim();
+        if (!productName) {
+            alert('Product name is required.');
+            return;
+        }
+        saveProduct({ name: productName });
+    });
 
     // Search input filtering
     drilldownSearchInput?.addEventListener('input', (e) => {
@@ -187,6 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderActiveTab() {
         if (state.activeTab === 'users') {
             renderUsersTable();
+        } else if (state.activeTab === 'products') {
+            renderProductsTable();
         } else {
             renderTasksList();
         }
@@ -262,12 +361,144 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderProductsTable() {
+        adminProductsTableBody.innerHTML = '';
+        const filteredProducts = state.products.filter(p => {
+            if (!state.searchQuery) return true;
+            return p.name && p.name.toLowerCase().includes(state.searchQuery);
+        });
+
+        if (filteredProducts.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="3" style="text-align: center; padding: 2rem; color: var(--muted);">No products found.</td>`;
+            adminProductsTableBody.appendChild(tr);
+            return;
+        }
+
+        filteredProducts.forEach(product => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--border)';
+            tr.style.transition = 'background var(--ease)';
+            tr.setAttribute('data-product-id', product.id);
+
+            tr.innerHTML = `
+                <td style="padding: 0.75rem 1rem; font-weight: 600; color: var(--text);">
+                    <span class="product-name-span">${product.name}</span>
+                    <input type="text" class="product-edit-input hidden" value="${product.name}" style="width: 100%; max-width: 300px; padding: 0.35rem 0.65rem; font-size: 0.88rem; border: 1px solid var(--accent); border-radius: 6px; background: var(--surface-input); color: var(--text); outline: none;">
+                </td>
+                <td style="padding: 0.75rem 1rem; color: var(--muted); font-size: 0.85rem;">
+                    ${product.createdAt || 'N/A'}
+                </td>
+                <td style="padding: 0.75rem 1rem; text-align: right;">
+                    <div class="product-view-actions" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <button class="btn-edit-product" data-id="${product.id}" style="background: rgba(96, 165, 250, 0.12); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">
+                            Edit
+                        </button>
+                        <button class="btn-delete-product" data-id="${product.id}" style="background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">
+                            Delete
+                        </button>
+                    </div>
+                    <div class="product-edit-actions hidden" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <button class="btn-save-inline-product" data-id="${product.id}" style="background: var(--accent); border: 1px solid var(--accent); color: #ffffff; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">
+                            Save
+                        </button>
+                        <button class="btn-cancel-inline-product" data-id="${product.id}" style="background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            adminProductsTableBody.appendChild(tr);
+
+            // Wire Edit button (toggles row to inline edit input)
+            const editBtn = tr.querySelector('.btn-edit-product');
+            const deleteBtn = tr.querySelector('.btn-delete-product');
+            const saveBtn = tr.querySelector('.btn-save-inline-product');
+            const cancelBtn = tr.querySelector('.btn-cancel-inline-product');
+            const nameSpan = tr.querySelector('.product-name-span');
+            const editInput = tr.querySelector('.product-edit-input');
+            const viewActions = tr.querySelector('.product-view-actions');
+            const editActions = tr.querySelector('.product-edit-actions');
+
+            editBtn?.addEventListener('click', () => {
+                nameSpan.classList.add('hidden');
+                editInput.classList.remove('hidden');
+                viewActions.classList.add('hidden');
+                editActions.classList.remove('hidden');
+                editInput.focus();
+            });
+
+            cancelBtn?.addEventListener('click', () => {
+                editInput.value = product.name;
+                nameSpan.classList.remove('hidden');
+                editInput.classList.add('hidden');
+                viewActions.classList.remove('hidden');
+                editActions.classList.add('hidden');
+            });
+
+            saveBtn?.addEventListener('click', () => {
+                const newName = editInput.value.trim();
+                if (!newName) return;
+                saveProduct({ id: product.id, name: newName });
+            });
+
+            editInput?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    saveBtn.click();
+                } else if (e.key === 'Escape') {
+                    cancelBtn.click();
+                }
+            });
+
+            // Wire Delete button (deletes directly in DB without alert popup)
+            deleteBtn?.addEventListener('click', () => {
+                deleteProduct(product.id);
+            });
+        });
+    }
+
+    async function saveProduct(productObj) {
+        try {
+            const res = await fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productObj)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to save product.');
+            if (newProductNameInput) newProductNameInput.value = '';
+            await loadDashboardData();
+        } catch (err) {
+            console.error('Save product error:', err.message);
+        }
+    }
+
+    async function deleteProduct(productId) {
+        try {
+            const res = await fetch(`/api/products?id=${productId}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to delete product.');
+            await loadDashboardData();
+        } catch (err) {
+            console.error('Delete product error:', err.message);
+        }
+    }
+
     function renderTasksList() {
         adminTasksList.innerHTML = '';
         const targetStatus = state.activeTab === 'completed' ? 'completed' : 'progress';
+        const selectedProd = (state.activeTab === 'progress' && progressProductFilterSelect) ? progressProductFilterSelect.value : 'ALL';
 
         const filteredTasks = state.events
             .filter(e => e.status === targetStatus)
+            .filter(e => {
+                if (targetStatus === 'progress' && selectedProd && selectedProd !== 'ALL') {
+                    const pName = (e.product_name || e.productName || 'General').trim();
+                    return pName.toLowerCase() === selectedProd.trim().toLowerCase();
+                }
+                return true;
+            })
             .filter(e => {
                 if (!state.searchQuery) return true;
                 return (e.title && e.title.toLowerCase().includes(state.searchQuery)) ||
@@ -336,21 +567,90 @@ document.addEventListener('DOMContentLoaded', () => {
                 year: 'numeric'
             });
 
+            let tokenIdHtml = '';
+            if (evt.token_id && evt.token_id.trim()) {
+                tokenIdHtml = `<span class="day-update-token">${evt.token_id.trim()}</span>`;
+            }
+
+            let contentBodyHtml = '';
+            const titleStr = (evt.title || '').trim();
+            const descStr = (evt.description || '').trim();
+            const mainContent = descStr || titleStr || 'No content details provided.';
+
+            if (descStr && titleStr && descStr !== titleStr && titleStr.length <= 60 && titleStr !== 'Update') {
+                contentBodyHtml = `
+                    <div class="day-update-subject">${titleStr}</div>
+                    <div class="day-update-content">${descStr}</div>
+                `;
+            } else {
+                contentBodyHtml = `
+                    <div class="day-update-content" style="font-size: 0.88rem; line-height: 1.5; color: var(--text); font-weight: 500; margin-bottom: 0.4rem;">${mainContent}</div>
+                `;
+            }
+
+            const isCompleted = evt.status === 'completed';
+            const radioColor = isCompleted ? '#10b981' : '#f59e0b';
+
             li.innerHTML = `
                 <div class="day-update-header">
-                    <span class="day-update-token">${evt.token_id || 'No Token'}</span>
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                        ${tokenIdHtml}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
                         <span style="font-size: 0.78rem; color: var(--faint);">Date: ${formattedDate}</span>
                         <span class="day-update-status ${statusClass}">${statusText}</span>
+                        <span class="status-radio-circle-btn ${isCompleted ? 'is-completed' : 'is-progress'}" data-event-id="${evt.id}" role="button" tabindex="0" title="Click to toggle status (Yellow: In Progress | Green: Completed)" onclick="event.stopPropagation();">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block; pointer-events:none;">
+                                <circle cx="12" cy="12" r="9" stroke="${radioColor}" stroke-width="2.5" fill="none"/>
+                                <circle cx="12" cy="12" r="5" fill="${radioColor}"/>
+                            </svg>
+                        </span>
                     </div>
                 </div>
-                <div class="day-update-subject">${evt.title}</div>
-                <div class="day-update-content">${evt.description || 'No content details provided.'}</div>
+                ${contentBodyHtml}
                 ${imagesHtml}
                 <div class="day-update-footer">
                     ${assigneeHtml}
                 </div>
             `;
+
+            // Wire single radio button click -> switch status
+            const radioBtn = li.querySelector('.status-radio-circle-btn');
+            if (radioBtn) {
+                radioBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const eventId = radioBtn.getAttribute('data-event-id');
+                    const currentlyCompleted = radioBtn.classList.contains('is-completed');
+                    const newStatus = currentlyCompleted ? 'progress' : 'completed';
+
+                    // Instant UI update
+                    const evObj = state.events.find(ev => String(ev.id) === String(eventId));
+                    if (evObj) {
+                        evObj.status = newStatus;
+                    }
+                    updateMetrics();
+                    populateProductDropdown();
+                    renderTasksList();
+
+                    // Sync with database
+                    fetch(`/api/events/${eventId}/status?status=${newStatus}`, {
+                        method: 'POST'
+                    })
+                    .then(async response => {
+                        const res = await response.json();
+                        if (!response.ok) throw new Error(res.error || 'Failed to update status.');
+                        return res;
+                    })
+                    .then(() => {
+                        loadDashboardData();
+                    })
+                    .catch(err => {
+                        console.error('Status update failed:', err);
+                        alert(err.message || 'Status update failed.');
+                        loadDashboardData();
+                    });
+                });
+            }
 
             // Thumbnail lightbox trigger
             li.querySelectorAll('.day-update-thumb').forEach(thumb => {

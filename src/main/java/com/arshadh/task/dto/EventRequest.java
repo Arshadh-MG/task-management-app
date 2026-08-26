@@ -28,6 +28,9 @@ public class EventRequest {
     @JsonProperty("memberId")
     private Long memberId;
 
+    @JsonProperty("productId")
+    private Long productId;
+
     @JsonProperty("status")
     private String status;
 
@@ -104,6 +107,14 @@ public class EventRequest {
 
     public void setMemberId(Long memberId) {
         this.memberId = memberId;
+    }
+
+    public Long getProductId() {
+        return productId;
+    }
+
+    public void setProductId(Long productId) {
+        this.productId = productId;
     }
 
     public String getStatus() {

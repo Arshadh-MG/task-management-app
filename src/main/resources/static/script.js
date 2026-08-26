@@ -27,6 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- INITIALIZATION ---
     applyTheme(state.theme);
     setupPasswordToggles();
+    if (registerForm) registerForm.reset();
+    if (loginForm) loginForm.reset();
+    setTimeout(() => {
+        if (registerForm) registerForm.reset();
+        if (loginForm) loginForm.reset();
+    }, 100);
 
     // --- THEME MANAGEMENT ---
     themeToggleBtn?.addEventListener('click', () => {

@@ -177,15 +177,37 @@
             <div class="stat-card" id="statCardProgress" style="background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 1.5rem; cursor: pointer; box-shadow: var(--shadow); transition: border-color var(--ease), transform var(--ease); position: relative; overflow: hidden;">
                 <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
                     <div>
-                        <span style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--faint);">In-Progress Tasks</span>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <span style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--faint);">In-Progress Tasks</span>
+                            <select id="progressProductFilterSelect" onclick="event.stopPropagation()" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-input); color: var(--text); outline: none; cursor: pointer; font-weight: 600;">
+                                <option value="ALL">All Products</option>
+                            </select>
+                        </div>
                         <div class="stat-number" id="statProgressCount" style="font-family: var(--font-title); font-size: 2.5rem; font-weight: 800; color: var(--text); line-height: 1.1; margin-top: 0.25rem;">0</div>
                     </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.12); color: #F59E0B; display: grid; place-items: center;">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.12); color: #F59E0B; display: grid; place-items: center; flex-shrink: 0;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
                     <span>Active tasks moving forward</span>
+                    <span class="card-indicator" style="font-weight: 600; color: var(--muted);">Click to View →</span>
+                </div>
+            </div>
+
+            <!-- STAT CARD 4: Product Management -->
+            <div class="stat-card" id="statCardProducts" style="background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 1.5rem; cursor: pointer; box-shadow: var(--shadow); transition: border-color var(--ease), transform var(--ease); position: relative; overflow: hidden;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
+                    <div>
+                        <span style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--faint);">Product Directory</span>
+                        <div class="stat-number" id="statProductsCount" style="font-family: var(--font-title); font-size: 2.5rem; font-weight: 800; color: var(--text); line-height: 1.1; margin-top: 0.25rem;">0</div>
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(168, 85, 247, 0.12); color: #a855f7; display: grid; place-items: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
+                    <span>Workspace products</span>
                     <span class="card-indicator" style="font-weight: 600; color: var(--muted);">Click to View →</span>
                 </div>
             </div>
@@ -229,6 +251,32 @@
                 <ul class="day-updates-list" id="adminTasksList" style="list-style: none; display: flex; flex-direction: column; gap: 1.25rem; padding: 0;">
                     <!-- Populated dynamically via admin.js -->
                 </ul>
+            </div>
+
+            <!-- View 3: Products Management View -->
+            <div id="productsViewContainer" class="hidden">
+                <!-- Add Product Form -->
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; background: var(--surface-input); padding: 1rem; border-radius: var(--control-radius); border: 1px solid var(--border);">
+                    <input type="text" id="newProductNameInput" placeholder="Enter Product Name (e.g. Product A)" style="flex: 1; padding: 0.55rem 1rem; border-radius: var(--control-radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; outline: none;">
+                    <button class="btn btn-primary" id="addProductBtn" style="width: auto; padding: 0.55rem 1.25rem; font-size: 0.88rem; white-space: nowrap;">
+                        + Add Product
+                    </button>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--faint); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                <th style="padding: 0.75rem 1rem;">Product Name</th>
+                                <th style="padding: 0.75rem 1rem;">Created At</th>
+                                <th style="padding: 0.75rem 1rem; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminProductsTableBody">
+                            <!-- Populated dynamically via admin.js -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
     </main>

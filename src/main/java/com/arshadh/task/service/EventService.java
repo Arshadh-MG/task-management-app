@@ -5,7 +5,9 @@ import com.arshadh.task.dto.EventRequest;
 import com.arshadh.task.dto.EventResponseDto;
 import com.arshadh.task.entity.Event;
 import com.arshadh.task.entity.User;
+import com.arshadh.task.entity.Product;
 import com.arshadh.task.repository.EventRepository;
+import com.arshadh.task.repository.ProductRepository;
 import com.arshadh.task.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,10 +23,12 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
 
-    public EventService(EventRepository eventRepository, UserRepository userRepository) {
+    public EventService(EventRepository eventRepository, UserRepository userRepository, ProductRepository productRepository) {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
+        this.productRepository = productRepository;
     }
 
     @Transactional(readOnly = true)
@@ -43,15 +47,25 @@ public class EventService {
             member = userRepository.findById(request.getMemberId()).orElse(null);
         }
 
+        Product product = null;
+        if (request.getProductId() != null && request.getProductId() > 0) {
+            product = productRepository.findById(request.getProductId()).orElse(null);
+        }
+
+        String safeTitle = request.getTitle() != null && !request.getTitle().isBlank() 
+                ? request.getTitle().trim() 
+                : (request.getDescription() != null && !request.getDescription().isBlank() ? request.getDescription().trim() : "Update");
+
         if (request.getId() != null && request.getId() > 0) {
             Event existing = eventRepository.findById(request.getId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found."));
 
-            existing.setTitle(request.getTitle().trim());
+            existing.setTitle(safeTitle);
             existing.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");
             existing.setTokenId(request.getTokenId() != null ? request.getTokenId().trim() : null);
             existing.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
             existing.setMember(member);
+            existing.setProduct(product);
             existing.setStatus(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus().trim() : "progress");
             existing.setEventDate(request.getEventDate().trim());
             existing.setStartTime(request.getStartTime() != null ? request.getStartTime().trim() : "");
@@ -64,11 +78,12 @@ public class EventService {
         } else {
             Event event = new Event();
             event.setUser(user);
-            event.setTitle(request.getTitle().trim());
+            event.setTitle(safeTitle);
             event.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");
             event.setTokenId(request.getTokenId() != null ? request.getTokenId().trim() : null);
             event.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
             event.setMember(member);
+            event.setProduct(product);
             event.setStatus(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus().trim() : "progress");
             event.setEventDate(request.getEventDate().trim());
             event.setStartTime(request.getStartTime() != null ? request.getStartTime().trim() : "");
@@ -89,6 +104,14 @@ public class EventService {
         return ApiResponse.success("Event deleted successfully.");
     }
 
+    public ApiResponse updateEventStatus(Long id, String status) {
+        Event event = eventRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found."));
+        event.setStatus(status != null && !status.isBlank() ? status.trim() : "progress");
+        eventRepository.save(event);
+        return ApiResponse.success("Event status updated successfully.");
+    }
+
     private EventResponseDto mapToDto(Event event) {
         EventResponseDto dto = new EventResponseDto();
         dto.setId(event.getId());
@@ -98,6 +121,8 @@ public class EventService {
         dto.setTokenId(event.getTokenId());
         dto.setSubject(event.getSubject());
         dto.setMemberId(event.getMember() != null ? event.getMember().getId() : null);
+        dto.setProductId(event.getProduct() != null ? event.getProduct().getId() : null);
+        dto.setProductName(event.getProduct() != null ? event.getProduct().getName() : null);
         dto.setStatus(event.getStatus());
         dto.setEventDate(event.getEventDate());
         dto.setStartTime(event.getStartTime());

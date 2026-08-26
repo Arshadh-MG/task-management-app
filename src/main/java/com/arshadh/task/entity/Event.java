@@ -16,10 +16,10 @@ public class Event {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "title", nullable = false)
+    @Column(name = "title", columnDefinition = "LONGTEXT", nullable = false)
     private String title;
 
-    @Column(name = "description", columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "LONGTEXT")
     private String description;
 
     @Column(name = "token_id")
@@ -31,6 +31,10 @@ public class Event {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id")
     private User member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
 
     @Column(name = "status", nullable = false)
     private String status = "progress";
@@ -47,7 +51,7 @@ public class Event {
     @Column(name = "color", nullable = false)
     private String color = "blue";
 
-    @Column(name = "images", columnDefinition = "TEXT")
+    @Column(name = "images", columnDefinition = "LONGTEXT")
     private String images;
 
     @Column(name = "created_at", nullable = false)
@@ -135,6 +139,14 @@ public class Event {
 
     public void setMember(User member) {
         this.member = member;
+    }
+
+    public Product getProduct() {
+        return product;
+    }
+
+    public void setProduct(Product product) {
+        this.product = product;
     }
 
     public String getStatus() {

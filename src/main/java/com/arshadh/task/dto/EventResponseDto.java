@@ -20,6 +20,12 @@ public class EventResponseDto {
     @JsonProperty("member_id")
     private Long memberId;
 
+    @JsonProperty("product_id")
+    private Long productId;
+
+    @JsonProperty("product_name")
+    private String productName;
+
     private String status;
 
     @JsonProperty("event_date")
@@ -97,6 +103,22 @@ public class EventResponseDto {
 
     public void setMemberId(Long memberId) {
         this.memberId = memberId;
+    }
+
+    public Long getProductId() {
+        return productId;
+    }
+
+    public void setProductId(Long productId) {
+        this.productId = productId;
+    }
+
+    public String getProductName() {
+        return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
     }
 
     public String getStatus() {

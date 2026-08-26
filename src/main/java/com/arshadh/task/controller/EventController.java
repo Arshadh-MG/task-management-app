@@ -46,4 +46,12 @@ public class EventController {
         ApiResponse response = eventService.deleteEvent(id);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/events/{id}/status")
+    public ResponseEntity<ApiResponse> updateEventStatus(
+            @PathVariable("id") Long id,
+            @RequestParam("status") String status) {
+        ApiResponse response = eventService.updateEventStatus(id, status);
+        return ResponseEntity.ok(response);
+    }
 }

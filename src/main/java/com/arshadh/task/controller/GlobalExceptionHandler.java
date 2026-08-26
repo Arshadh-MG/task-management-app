@@ -30,7 +30,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        return new ResponseEntity<>(ApiResponse.error("This email is already registered."), HttpStatus.CONFLICT);
+        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        if (msg != null && msg.toLowerCase().contains("email")) {
+            return new ResponseEntity<>(ApiResponse.error("This email is already registered."), HttpStatus.CONFLICT);
+        }
+        return new ResponseEntity<>(ApiResponse.error("Database validation error: " + (msg != null ? msg : "Data integrity constraint violated.")), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
