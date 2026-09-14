@@ -13,10 +13,11 @@ import java.util.List;
 @Repository
 public interface EventRepository extends JpaRepository<Event, Long> {
 
-    @Query("SELECT e FROM Event e ORDER BY e.createdAt DESC, e.id DESC")
+    @Query("SELECT e FROM Event e LEFT JOIN FETCH e.user LEFT JOIN FETCH e.member LEFT JOIN FETCH e.product ORDER BY e.createdAt DESC, e.id DESC")
     List<Event> findAllOrdered();
 
-    List<Event> findByEventDate(String eventDate);
+    @Query("SELECT e FROM Event e LEFT JOIN FETCH e.user LEFT JOIN FETCH e.member LEFT JOIN FETCH e.product WHERE e.eventDate = :eventDate ORDER BY e.createdAt DESC, e.id DESC")
+    List<Event> findByEventDate(@Param("eventDate") String eventDate);
 
     @Modifying
     @Query("UPDATE Event e SET e.member = NULL WHERE e.member = :member")

@@ -773,6 +773,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-save update when clicking Add + and prepare next new update row
     let isNewUpdateSaving = false;
 
+    function resetSaveButtonStates() {
+        isNewUpdateSaving = false;
+        const addHeaderBtn = document.getElementById('tableHeaderAddBtn');
+        const topAddBtn = document.getElementById('addUpdateBtn');
+        const addRowBtn = document.getElementById('excelNewAddRowBtn');
+
+        if (addHeaderBtn) {
+            addHeaderBtn.disabled = false;
+            addHeaderBtn.textContent = 'ADD +';
+        }
+        if (topAddBtn) {
+            topAddBtn.disabled = false;
+            const span = topAddBtn.querySelector('span');
+            if (span) span.textContent = 'Add Update';
+        }
+        if (addRowBtn) {
+            addRowBtn.disabled = false;
+            addRowBtn.textContent = '+ Add';
+        }
+    }
+
     async function handleAutoSaveAndAdd() {
         // Immediate synchronous lock check to ignore rapid successive Enter presses or clicks
         if (isNewUpdateSaving) return;
@@ -849,6 +870,23 @@ document.addEventListener('DOMContentLoaded', () => {
         statusSel.disabled = true;
         productSel.disabled = true;
 
+        const addHeaderBtn = document.getElementById('tableHeaderAddBtn');
+        const topAddBtn = document.getElementById('addUpdateBtn');
+        const addRowBtn = document.getElementById('excelNewAddRowBtn');
+        if (addHeaderBtn) {
+            addHeaderBtn.disabled = true;
+            addHeaderBtn.textContent = 'Saving...';
+        }
+        if (topAddBtn) {
+            topAddBtn.disabled = true;
+            const span = topAddBtn.querySelector('span');
+            if (span) span.textContent = 'Saving...';
+        }
+        if (addRowBtn) {
+            addRowBtn.disabled = true;
+            addRowBtn.textContent = 'Saving...';
+        }
+
         const payload = {
             userId: currentUser.userId || currentUser.id || 1,
             title: content || 'Update',
@@ -860,17 +898,6 @@ document.addEventListener('DOMContentLoaded', () => {
             eventDate: state.selectedDate,
             images: JSON.stringify(attachedImages)
         };
-
-        const addHeaderBtn = document.getElementById('tableHeaderAddBtn');
-        const addRowBtn = document.getElementById('excelNewAddRowBtn');
-        if (addHeaderBtn) {
-            addHeaderBtn.disabled = true;
-            addHeaderBtn.textContent = 'Saving...';
-        }
-        if (addRowBtn) {
-            addRowBtn.disabled = true;
-            addRowBtn.textContent = 'Saving...';
-        }
 
         try {
             const response = await fetch('/api/events', {
@@ -884,20 +911,47 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear input row state
             state.newUpdateImages = [];
 
-            // Refresh events and re-render list with empty new row ready at top
-            fetchEvents(() => {
-                fetchProducts(() => {
-                    isNewUpdateSaving = false;
-                    renderDayUpdatesList(state.selectedDate);
-                    setTimeout(() => {
-                        const newTaskInp = document.getElementById('excelNewTask');
-                        if (newTaskInp) newTaskInp.focus();
-                    }, 50);
-                });
-            });
+            // Directly update state.events with the newly saved event (from response or constructed)
+            const savedItem = res.data;
+            if (savedItem && typeof savedItem === 'object' && savedItem.id) {
+                state.events.unshift(savedItem);
+            } else {
+                const assignedUser = state.users.find(u => String(u.id) === String(memberId));
+                const selectedProd = state.products.find(p => String(p.id) === String(productId));
+                const newEventObj = {
+                    id: (savedItem && savedItem.id) ? savedItem.id : (typeof savedItem === 'number' ? savedItem : Date.now()),
+                    user_id: currentUser.userId || currentUser.id || 1,
+                    userId: currentUser.userId || currentUser.id || 1,
+                    title: content || 'Update',
+                    description: content,
+                    tokenId: '',
+                    member_id: parseInt(memberId),
+                    memberId: parseInt(memberId),
+                    product_id: parseInt(productId),
+                    productId: parseInt(productId),
+                    product_name: selectedProd ? selectedProd.name : 'General',
+                    productName: selectedProd ? selectedProd.name : 'General',
+                    status: status,
+                    event_date: state.selectedDate,
+                    eventDate: state.selectedDate,
+                    images: JSON.stringify(attachedImages),
+                    created_at: new Date().toISOString()
+                };
+                state.events.unshift(newEventObj);
+            }
+
+            // Immediately render updated table with new empty row ready at top (ZERO extra network roundtrips)
+            renderCalendar();
+            updateUpcomingEvents();
+            renderDayUpdatesList(state.selectedDate);
+            resetSaveButtonStates();
+
+            setTimeout(() => {
+                const newTaskInp = document.getElementById('excelNewTask');
+                if (newTaskInp) newTaskInp.focus();
+            }, 30);
         } catch (err) {
             // Unlock row on error so user can edit and retry
-            isNewUpdateSaving = false;
             if (inputTr) {
                 inputTr.dataset.isSaving = 'false';
                 inputTr.style.pointerEvents = 'auto';
@@ -907,15 +961,9 @@ document.addEventListener('DOMContentLoaded', () => {
             assignSel.disabled = false;
             statusSel.disabled = false;
             productSel.disabled = false;
-            if (addHeaderBtn) {
-                addHeaderBtn.disabled = false;
-                addHeaderBtn.textContent = '+ Add';
-            }
-            if (addRowBtn) {
-                addRowBtn.disabled = false;
-                addRowBtn.textContent = '+ Add';
-            }
             alert(err.message || 'Error adding update.');
+        } finally {
+            resetSaveButtonStates();
         }
     }
 
@@ -1465,11 +1513,33 @@ document.addEventListener('DOMContentLoaded', () => {
                                 });
                                 const data = await res.json();
                                 if (!res.ok) throw new Error(data.error || 'Failed to update.');
-                                fetchEvents(() => {
-                                    fetchProducts(() => {
-                                        renderDayUpdatesList(state.selectedDate);
-                                    });
-                                });
+
+                                const updatedItem = data.data;
+                                const idx = state.events.findIndex(e => String(e.id) === String(evt.id));
+                                if (idx !== -1) {
+                                    if (updatedItem && typeof updatedItem === 'object' && updatedItem.id) {
+                                        state.events[idx] = updatedItem;
+                                    } else {
+                                        const selectedProd = state.products.find(p => String(p.id) === String(newProductId));
+                                        state.events[idx] = {
+                                            ...state.events[idx],
+                                            description: newContent,
+                                            title: newContent || 'Update',
+                                            member_id: parseInt(newMemberId),
+                                            memberId: parseInt(newMemberId),
+                                            product_id: parseInt(newProductId),
+                                            productId: parseInt(newProductId),
+                                            product_name: selectedProd ? selectedProd.name : 'General',
+                                            productName: selectedProd ? selectedProd.name : 'General',
+                                            status: newStatus,
+                                            images: JSON.stringify(editImagesList)
+                                        };
+                                    }
+                                }
+
+                                renderCalendar();
+                                updateUpcomingEvents();
+                                renderDayUpdatesList(state.selectedDate);
                             } catch (err) {
                                 editTr.dataset.isSaving = 'false';
                                 editTr.style.pointerEvents = 'auto';
@@ -1708,11 +1778,11 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(() => {
                 state.activeInlineId = null;
-                fetchEvents(() => {
-                    fetchProducts(() => {
-                        renderDayUpdatesList(state.selectedDate);
-                    });
-                });
+                // Directly remove from local state without extra roundtrips
+                state.events = state.events.filter(e => String(e.id) !== String(eventId));
+                renderCalendar();
+                updateUpcomingEvents();
+                renderDayUpdatesList(state.selectedDate);
             })
             .catch(error => {
                 alert(error.message || 'Delete failed.');
@@ -1781,6 +1851,49 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    function renderOnlineUsersList() {
+        if (onlineUsersList) {
+            onlineUsersList.innerHTML = '';
+        }
+
+        if (eventMemberIdSelect) {
+            eventMemberIdSelect.innerHTML = '<option value="">-- Select Member --</option>';
+        }
+
+        state.users.forEach(user => {
+            const isCurrentUser = user.id === (currentUser.userId || currentUser.id);
+            const isOnline = isCurrentUser;
+            const statusClass = isOnline ? 'status-online' : 'status-offline';
+            const statusLabel = isOnline ? 'Online' : 'Offline';
+
+            const userName = user.full_name || user.fullName || 'User';
+            const initial = userName.charAt(0).toUpperCase();
+
+            if (onlineUsersList) {
+                const li = document.createElement('li');
+                li.classList.add('online-user-item');
+                li.innerHTML = `
+                    <div class="user-avatar-sm" title="${statusLabel}">
+                        ${initial}
+                        <span class="status-dot ${statusClass}"></span>
+                    </div>
+                    <div class="user-details-sm">
+                        <span class="user-name-sm">${escapeHtml(userName)} ${isCurrentUser ? '(You)' : ''}</span>
+                        <span class="user-role-sm">${escapeHtml(user.role || 'Member')}</span>
+                    </div>
+                `;
+                onlineUsersList.appendChild(li);
+            }
+
+            if (eventMemberIdSelect) {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${userName} (${user.role || 'Member'})` + (isCurrentUser ? ' - You' : '');
+                eventMemberIdSelect.appendChild(option);
+            }
+        });
+    }
+
     function fetchOnlineUsers(callback) {
         fetch('/api/users')
             .then(async response => {
@@ -1790,51 +1903,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(users => {
                 state.users = Array.isArray(users) ? users : [];
-
-                // Populate Online Users list in sidebar
-                if (onlineUsersList) {
-                    onlineUsersList.innerHTML = '';
-                }
-
-                // Populate select dropdown in the modal
-                if (eventMemberIdSelect) {
-                    eventMemberIdSelect.innerHTML = '<option value="">-- Select Member --</option>';
-                }
-
-                state.users.forEach(user => {
-                    const isCurrentUser = user.id === (currentUser.userId || currentUser.id);
-                    const isOnline = isCurrentUser;
-                    const statusClass = isOnline ? 'status-online' : 'status-offline';
-                    const statusLabel = isOnline ? 'Online' : 'Offline';
-
-                    const userName = user.full_name || user.fullName || 'User';
-                    const initial = userName.charAt(0).toUpperCase();
-
-                    if (onlineUsersList) {
-                        const li = document.createElement('li');
-                        li.classList.add('online-user-item');
-                        li.innerHTML = `
-                            <div class="user-avatar-sm" title="${statusLabel}">
-                                ${initial}
-                                <span class="status-dot ${statusClass}"></span>
-                            </div>
-                            <div class="user-details-sm">
-                                <span class="user-name-sm">${escapeHtml(userName)} ${isCurrentUser ? '(You)' : ''}</span>
-                                <span class="user-role-sm">${escapeHtml(user.role || 'Member')}</span>
-                            </div>
-                        `;
-                        onlineUsersList.appendChild(li);
-                    }
-
-                    if (eventMemberIdSelect) {
-                        const option = document.createElement('option');
-                        option.value = user.id;
-                        option.textContent = `${userName} (${user.role || 'Member'})` + (isCurrentUser ? ' - You' : '');
-                        eventMemberIdSelect.appendChild(option);
-                    }
-                });
-
-                // Trigger re-rendering
+                renderOnlineUsersList();
                 renderCalendar();
                 if (dayViewContainer && dayViewContainer.style.display !== 'none') {
                     renderDayUpdatesList(state.selectedDate);
@@ -1848,10 +1917,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    // --- INITIAL FETCHES ---
-    fetchProducts(() => {
-        fetchOnlineUsers(() => {
-            fetchEvents();
-        });
-    });
+    // --- INITIAL FETCHES (CONCURRENT IN PARALLEL) ---
+    async function initApp() {
+        try {
+            const [productsRes, usersRes, eventsRes] = await Promise.all([
+                fetch('/api/products'),
+                fetch('/api/users'),
+                fetch('/api/events')
+            ]);
+
+            if (productsRes.ok) {
+                const products = await productsRes.json();
+                state.products = Array.isArray(products) ? products : [];
+                updateProductFilterDropdown();
+            }
+
+            if (usersRes.ok) {
+                const users = await usersRes.json();
+                state.users = Array.isArray(users) ? users : [];
+                renderOnlineUsersList();
+            }
+
+            if (eventsRes.ok) {
+                const events = await eventsRes.json();
+                state.events = Array.isArray(events) ? events : [];
+                renderCalendar();
+                updateUpcomingEvents();
+            }
+        } catch (err) {
+            console.error('Initial load error:', err);
+        }
+    }
+
+    initApp();
 });

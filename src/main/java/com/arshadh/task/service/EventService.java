@@ -103,8 +103,8 @@ public class EventService {
             existing.setColor(request.getColor() != null && !request.getColor().isBlank() ? request.getColor().trim() : "blue");
             existing.setImages(request.getImages());
 
-            eventRepository.save(existing);
-            return ApiResponse.success("Event updated successfully.");
+            Event saved = eventRepository.save(existing);
+            return ApiResponse.success("Event updated successfully.", mapToDto(saved));
         } else {
             Event event = new Event();
             event.setUser(user);
@@ -122,7 +122,7 @@ public class EventService {
             event.setImages(request.getImages());
 
             Event saved = eventRepository.save(event);
-            return ApiResponse.success("Event created successfully.", saved.getId());
+            return ApiResponse.success("Event created successfully.", mapToDto(saved));
         }
     }
 

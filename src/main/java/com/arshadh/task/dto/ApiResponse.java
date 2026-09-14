@@ -7,6 +7,7 @@ public class ApiResponse {
     private String message;
     private String error;
     private Long id;
+    private Object data;
 
     public ApiResponse() {
     }
@@ -22,6 +23,15 @@ public class ApiResponse {
     public static ApiResponse success(String message, Long id) {
         ApiResponse response = new ApiResponse(message);
         response.setId(id);
+        return response;
+    }
+
+    public static ApiResponse success(String message, Object data) {
+        ApiResponse response = new ApiResponse(message);
+        response.setData(data);
+        if (data instanceof EventResponseDto) {
+            response.setId(((EventResponseDto) data).getId());
+        }
         return response;
     }
 
@@ -53,5 +63,13 @@ public class ApiResponse {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Object getData() {
+        return data;
+    }
+
+    public void setData(Object data) {
+        this.data = data;
     }
 }

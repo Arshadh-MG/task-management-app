@@ -41,6 +41,19 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("Notice: events column types alter: " + e.getMessage());
         }
 
+        // Create performance indexes if not exists
+        try {
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_events_product_id ON events(product_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_events_member_id ON events(member_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_events_status ON events(status)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_events_date_prod ON events(event_date, product_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)");
+        } catch (Exception e) {
+            System.out.println("Notice: index creation: " + e.getMessage());
+        }
+
         String adminEmail = "admin123@gmail.com";
         if (userRepository.findByEmailIgnoreCase(adminEmail).isEmpty()) {
             User admin = new User(
