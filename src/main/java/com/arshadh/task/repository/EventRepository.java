@@ -16,6 +16,8 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     @Query("SELECT e FROM Event e ORDER BY e.createdAt DESC, e.id DESC")
     List<Event> findAllOrdered();
 
+    List<Event> findByEventDate(String eventDate);
+
     @Modifying
     @Query("UPDATE Event e SET e.member = NULL WHERE e.member = :member")
     void unassignMemberEvents(@Param("member") User member);

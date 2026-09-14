@@ -56,6 +56,36 @@ public class EventService {
                 ? request.getTitle().trim() 
                 : (request.getDescription() != null && !request.getDescription().isBlank() ? request.getDescription().trim() : "Update");
 
+        // Duplicate check: prevent exact duplicate tickets for the same date and product
+        Long currentEventId = request.getId();
+        String newDate = request.getEventDate() != null ? request.getEventDate().trim() : "";
+        Long newProdId = product != null ? product.getId() : null;
+        String newDesc = (request.getDescription() != null ? request.getDescription().trim() : "");
+        String incomingContent = !newDesc.isEmpty() ? newDesc : safeTitle;
+
+        List<Event> dateEvents = eventRepository.findByEventDate(newDate);
+        boolean isDuplicate = dateEvents.stream().anyMatch(e -> {
+            if (currentEventId != null && currentEventId > 0 && e.getId().equals(currentEventId)) {
+                return false;
+            }
+            Long existingProdId = e.getProduct() != null ? e.getProduct().getId() : null;
+            if (newProdId != null || existingProdId != null) {
+                if (newProdId == null || !newProdId.equals(existingProdId)) {
+                    return false;
+                }
+            }
+
+            String existingDesc = e.getDescription() != null ? e.getDescription().trim() : "";
+            String existingTitle = e.getTitle() != null ? e.getTitle().trim() : "";
+            String existingContent = !existingDesc.isEmpty() ? existingDesc : existingTitle;
+
+            return existingContent.equals(incomingContent);
+        });
+
+        if (isDuplicate) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A duplicate ticket with the exact same content already exists for this date and product.");
+        }
+
         if (request.getId() != null && request.getId() > 0) {
             Event existing = eventRepository.findById(request.getId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found."));

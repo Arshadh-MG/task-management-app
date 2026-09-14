@@ -812,6 +812,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Duplicate check: do not allow exact duplicate tickets
+        const isDuplicate = state.events.some(e => {
+            const evDate = e.event_date || e.eventDate || '';
+            const pId = e.product_id != null ? String(e.product_id) : (e.productId != null ? String(e.productId) : '');
+            const desc = (e.description || e.title || '').trim();
+            return evDate === state.selectedDate &&
+                   pId === String(productId) &&
+                   desc === content;
+        });
+
+        if (isDuplicate) {
+            alert('A duplicate ticket with this exact content already exists for this date and product.');
+            taskInp.style.borderColor = '#ef4444';
+            taskInp.focus();
+            return;
+        }
+
         const payload = {
             userId: currentUser.userId || currentUser.id || 1,
             title: content || 'Update',
@@ -1368,6 +1385,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                 return;
                             }
 
+                            // Duplicate check for inline edit
+                            const isDuplicate = state.events.some(e => {
+                                if (String(e.id) === String(evt.id)) return false;
+                                const evDate = e.event_date || e.eventDate || '';
+                                const pId = e.product_id != null ? String(e.product_id) : (e.productId != null ? String(e.productId) : '');
+                                const desc = (e.description || e.title || '').trim();
+                                return evDate === (evt.event_date || evt.eventDate || state.selectedDate) &&
+                                       pId === String(newProductId) &&
+                                       desc === newContent;
+                            });
+
+                            if (isDuplicate) {
+                                alert('A duplicate ticket with this exact content already exists for this date and product.');
+                                return;
+                            }
+
                             const updatePayload = {
                                 id: evt.id,
                                 userId: currentUser.userId || currentUser.id || 1,
@@ -1523,6 +1556,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!status) {
             alert('Status field is required.');
+            return;
+        }
+
+        // Duplicate check for modal form
+        const isDuplicate = state.events.some(e => {
+            if (id && String(e.id) === String(id)) return false;
+            const evDate = e.event_date || e.eventDate || '';
+            const desc = (e.description || e.title || '').trim();
+            const incoming = (description || title).trim();
+            return evDate === eventDate && desc === incoming;
+        });
+
+        if (isDuplicate) {
+            alert('A duplicate ticket with this exact content already exists for this date.');
             return;
         }
 
