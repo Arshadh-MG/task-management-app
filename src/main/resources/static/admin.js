@@ -1,26 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- SESSION CHECK ---
-    const token = localStorage.getItem('token') || localStorage.getItem('admin_token');
+    // --- SESSION (Direct Workspace Access) ---
     const userJson = localStorage.getItem('user') || localStorage.getItem('admin_user');
-
-    if (!token || !userJson) {
-        window.location.href = './index.html';
-        return;
-    }
-
-    const currentAdmin = JSON.parse(userJson);
-    const isAdmin = currentAdmin.email === 'admin123@gmail.com' || (currentAdmin.role && currentAdmin.role.toLowerCase().includes('admin'));
-
-    if (!isAdmin) {
-        window.location.href = './calendar.html';
-        return;
+    let currentAdmin = { id: 1, userId: 1, fullName: 'Admin', email: 'admin123@gmail.com', role: 'Administrator' };
+    if (userJson) {
+        try {
+            const parsed = JSON.parse(userJson);
+            currentAdmin = { ...currentAdmin, ...parsed, userId: parsed.id || parsed.userId || 1 };
+        } catch (e) { }
     }
 
     // --- DOM REFERENCES ---
     const adminNameEl = document.getElementById('adminName');
     const adminEmailDisplay = document.getElementById('adminEmailDisplay');
     const adminAvatarEl = document.getElementById('adminAvatar');
-    const adminLogoutBtn = document.getElementById('adminLogoutBtn');
 
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const sunIcon = themeToggleBtn?.querySelector('.sun-icon');
@@ -42,6 +34,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const drilldownTitle = document.getElementById('drilldownTitle');
     const drilldownSubtitle = document.getElementById('drilldownSubtitle');
     const drilldownSearchInput = document.getElementById('drilldownSearchInput');
+    const openAddUserModalBtn = document.getElementById('openAddUserModalBtn');
+
+    // Add User Modal Elements
+    const addUserModalOverlay = document.getElementById('addUserModalOverlay');
+    const addUserModalCloseBtn = document.getElementById('addUserModalCloseBtn');
+    const cancelAddUserBtn = document.getElementById('cancelAddUserBtn');
+    const addUserForm = document.getElementById('addUserForm');
+    const newUserFullName = document.getElementById('newUserFullName');
+    const newUserEmail = document.getElementById('newUserEmail');
+    const newUserRole = document.getElementById('newUserRole');
+    const newUserPassword = document.getElementById('newUserPassword');
+    const saveUserBtn = document.getElementById('saveUserBtn');
 
     const usersViewContainer = document.getElementById('usersViewContainer');
     const tasksViewContainer = document.getElementById('tasksViewContainer');
@@ -72,12 +76,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIALIZE UI ---
     applyTheme(state.theme);
-    adminNameEl.textContent = currentAdmin.fullName || 'Admin';
-    adminEmailDisplay.textContent = currentAdmin.email || 'admin123@gmail.com';
-    adminAvatarEl.textContent = (currentAdmin.fullName || 'A').charAt(0).toUpperCase();
+    if (adminNameEl) adminNameEl.textContent = currentAdmin.fullName || 'Admin';
+    if (adminEmailDisplay) adminEmailDisplay.textContent = currentAdmin.email || '';
+    if (adminAvatarEl) adminAvatarEl.textContent = (currentAdmin.fullName || 'A').charAt(0).toUpperCase();
     const adminRoleBadge = document.getElementById('adminRoleBadge');
     if (adminRoleBadge) adminRoleBadge.textContent = currentAdmin.role || 'Admin';
-
 
     // Theme Toggle
     themeToggleBtn?.addEventListener('click', () => {
@@ -98,13 +101,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Logout
-    adminLogoutBtn?.addEventListener('click', () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        window.location.href = './index.html';
+    // --- ADD USER MODAL LOGIC ---
+    function openAddUserModal() {
+        if (addUserModalOverlay) {
+            addUserModalOverlay.classList.add('active');
+            if (newUserFullName) {
+                newUserFullName.value = '';
+                newUserFullName.focus();
+            }
+            if (newUserRole) newUserRole.value = '';
+        }
+    }
+
+    function closeAddUserModal() {
+        if (addUserModalOverlay) {
+            addUserModalOverlay.classList.remove('active');
+            if (addUserForm) addUserForm.reset();
+        }
+    }
+
+    openAddUserModalBtn?.addEventListener('click', openAddUserModal);
+    addUserModalCloseBtn?.addEventListener('click', closeAddUserModal);
+    cancelAddUserBtn?.addEventListener('click', closeAddUserModal);
+    addUserModalOverlay?.addEventListener('click', (e) => {
+        if (e.target === addUserModalOverlay) closeAddUserModal();
+    });
+
+    addUserForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fullName = newUserFullName?.value.trim();
+        const role = newUserRole?.value.trim();
+
+        if (!fullName) {
+            alert('Please enter full name.');
+            return;
+        }
+        if (!role) {
+            alert('Please enter user role.');
+            return;
+        }
+
+        if (saveUserBtn) {
+            saveUserBtn.disabled = true;
+            saveUserBtn.textContent = 'Saving...';
+        }
+
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fullName, role })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || result.message || 'Failed to add user.');
+
+            closeAddUserModal();
+            loadDashboardData();
+        } catch (err) {
+            alert(err.message || 'Error adding user.');
+        } finally {
+            if (saveUserBtn) {
+                saveUserBtn.disabled = false;
+                saveUserBtn.textContent = 'Save User';
+            }
+        }
     });
 
     // --- FETCH DATA ---
@@ -210,6 +270,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        if (openAddUserModalBtn) {
+            openAddUserModalBtn.style.display = (tab === 'users') ? 'inline-flex' : 'none';
+        }
+
         if (tab === 'users') {
             if (statCardUsers) {
                 statCardUsers.style.borderColor = 'var(--accent)';
@@ -295,14 +359,15 @@ document.addEventListener('DOMContentLoaded', () => {
         adminUsersTableBody.innerHTML = '';
         const filteredUsers = state.users.filter(u => {
             if (!state.searchQuery) return true;
-            return (u.full_name && u.full_name.toLowerCase().includes(state.searchQuery)) ||
-                   (u.email && u.email.toLowerCase().includes(state.searchQuery)) ||
-                   (u.role && u.role.toLowerCase().includes(state.searchQuery));
+            const name = u.full_name || u.fullName || '';
+            const role = u.role || '';
+            return name.toLowerCase().includes(state.searchQuery) ||
+                   role.toLowerCase().includes(state.searchQuery);
         });
 
         if (filteredUsers.length === 0) {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="4" style="text-align: center; padding: 2rem; color: var(--muted);">No users found.</td>`;
+            tr.innerHTML = `<td colspan="3" style="text-align: center; padding: 2rem; color: var(--muted);">No users found.</td>`;
             adminUsersTableBody.appendChild(tr);
             return;
         }
@@ -312,26 +377,26 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.style.borderBottom = '1px solid var(--border)';
             tr.style.transition = 'background var(--ease)';
 
-            const isCurrentAdmin = user.id === currentAdmin.userId;
-            const initial = (user.full_name || 'U').charAt(0).toUpperCase();
+            const userName = user.full_name || user.fullName || 'User';
+            const isCurrentAdmin = user.id === currentAdmin.userId || user.id === currentAdmin.id;
+            const initial = userName.charAt(0).toUpperCase();
 
             tr.innerHTML = `
                 <td style="padding: 1rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
                         <div class="user-avatar-sm" style="width: 34px; height: 34px; font-size: 0.85rem;">${initial}</div>
                         <div>
-                            <div style="font-weight: 600; color: var(--text);">${user.full_name} ${isCurrentAdmin ? '<span style="color: var(--accent); font-size: 0.75rem;">(You)</span>' : ''}</div>
+                            <div style="font-weight: 600; color: var(--text);">${userName} ${isCurrentAdmin ? '<span style="color: var(--accent); font-size: 0.75rem;">(You)</span>' : ''}</div>
                             <div style="font-size: 0.75rem; color: var(--faint);">User ID: #${user.id}</div>
                         </div>
                     </div>
                 </td>
-                <td style="padding: 1rem; color: var(--muted);">${user.email}</td>
                 <td style="padding: 1rem;">
                     <span class="day-update-token" style="background: rgba(96, 165, 250, 0.1); color: var(--accent); font-size: 0.75rem;">${user.role || 'Member'}</span>
                 </td>
                 <td style="padding: 1rem; text-align: right;">
                     ${!isCurrentAdmin ? `
-                        <button class="btn-delete-user" data-id="${user.id}" data-name="${user.full_name}" style="background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background var(--ease), color var(--ease);">
+                        <button class="btn-delete-user" data-id="${user.id}" data-name="${userName}" style="background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background var(--ease), color var(--ease);">
                             Remove User
                         </button>
                     ` : '<span style="font-size: 0.78rem; color: var(--faint);">Current Admin</span>'}

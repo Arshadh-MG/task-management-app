@@ -741,6 +741,16 @@ body.light-theme .calendar-day.today {
     font-weight: 700;
 }
 
+.calendar-event-dot {
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    background-color: #2563eb !important;
+    margin: 8px auto 0 auto !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
+    display: block !important;
+}
+
 .day-header {
     display: flex;
     justify-content: space-between;
@@ -1655,6 +1665,265 @@ body.light-theme.admin-page tr:hover {
 .status-radio-circle-btn:hover {
     transform: scale(1.18) !important;
 }
+
+/* --- EXACT EXCEL SPREADSHEET TABLE & CELLS --- */
+.day-updates-table-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #c0c0c0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    overflow-x: auto !important;
+}
+
+body.dark-theme .day-updates-table-wrapper,
+body:not(.light-theme) .day-updates-table-wrapper {
+    border-color: rgba(148, 163, 184, 0.35) !important;
+    background: #0f172a !important;
+}
+
+.day-updates-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    text-align: left !important;
+    font-size: 0.82rem !important;
+    border: 1px solid #c0c0c0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+}
+
+body.dark-theme .day-updates-table,
+body:not(.light-theme) .day-updates-table {
+    border-color: rgba(148, 163, 184, 0.35) !important;
+    background: #0f172a !important;
+}
+
+.day-updates-table thead tr {
+    background: #f1f5f9 !important;
+    border-bottom: 1px solid #c0c0c0 !important;
+}
+
+body.dark-theme .day-updates-table thead tr,
+body:not(.light-theme) .day-updates-table thead tr {
+    background: #1e293b !important;
+    border-bottom-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+.day-updates-table th {
+    padding: 4px 6px !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #334155 !important;
+    border: 1px solid #c0c0c0 !important;
+    vertical-align: middle !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
+body.dark-theme .day-updates-table th,
+body:not(.light-theme) .day-updates-table th {
+    color: #cbd5e1 !important;
+    border-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+.day-updates-table td {
+    padding: 4px 6px !important;
+    border: 1px solid #c0c0c0 !important;
+    vertical-align: top !important;
+    color: #0f172a !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
+body.dark-theme .day-updates-table td,
+body:not(.light-theme) .day-updates-table td {
+    color: #f8fafc !important;
+    background: #0f172a !important;
+    border-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+.day-updates-table tbody tr {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+body.dark-theme .day-updates-table tbody tr,
+body:not(.light-theme) .day-updates-table tbody tr {
+    border-bottom-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+.day-updates-table tbody tr:hover {
+    background: #f8fafc !important;
+}
+
+body.dark-theme .day-updates-table tbody tr:hover,
+body:not(.light-theme) .day-updates-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.day-updates-table tbody tr.excel-new-update-row {
+    background: #fdfdfd !important;
+}
+
+body.dark-theme .day-updates-table tbody tr.excel-new-update-row,
+body:not(.light-theme) .day-updates-table tbody tr.excel-new-update-row {
+    background: rgba(37, 99, 235, 0.08) !important;
+}
+
+.excel-cell-input {
+    width: 100% !important;
+    min-height: 48px !important;
+    height: 48px !important;
+    padding: 6px 8px !important;
+    font-size: 0.85rem !important;
+    line-height: 1.4 !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    outline: none !important;
+    resize: vertical !important;
+    font-family: inherit !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+}
+
+body.dark-theme .excel-cell-input,
+body:not(.light-theme) .excel-cell-input {
+    background: #070a12 !important;
+    color: #f8fafc !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+}
+
+.excel-cell-input:focus {
+    border-color: #2563eb !important;
+}
+
+.excel-cell-select {
+    width: 100% !important;
+    height: 26px !important;
+    padding: 1px 3px !important;
+    font-size: 0.82rem !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+}
+
+body.dark-theme .excel-cell-select,
+body:not(.light-theme) .excel-cell-select {
+    background: #070a12 !important;
+    color: #f8fafc !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+}
+
+.excel-cell-select:focus {
+    border-color: #2563eb !important;
+}
+
+.excel-cell-attach {
+    width: 100% !important;
+    height: 26px !important;
+    padding: 0 4px !important;
+    font-size: 0.75rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    background: #f8fafc !important;
+    color: #2563eb !important;
+    font-weight: 600 !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+}
+
+body.dark-theme .excel-cell-attach,
+body:not(.light-theme) .excel-cell-attach {
+    background: #070a12 !important;
+    color: #60a5fa !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+}
+
+.excel-cell-attach:hover {
+    border-color: #2563eb !important;
+    background: rgba(37, 99, 235, 0.08) !important;
+}
+
+.btn-table-header-add {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border: 1px solid #1d4ed8 !important;
+    border-radius: 0 !important;
+    padding: 2px 8px !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+    line-height: 1.2 !important;
+}
+
+.btn-table-header-add:hover {
+    background: #1d4ed8 !important;
+}
+
+.btn-row-add {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border: 1px solid #1d4ed8 !important;
+    border-radius: 0 !important;
+    padding: 0 8px !important;
+    height: 26px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+    white-space: nowrap !important;
+    transition: background 0.15s ease !important;
+}
+
+.btn-row-add:hover {
+    background: #1d4ed8 !important;
+}
+
+.btn-row-cancel {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+    border: 1px solid #dc2626 !important;
+    border-radius: 0 !important;
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    transition: background 0.15s ease !important;
+}
+
+.btn-row-cancel:hover {
+    background: #dc2626 !important;
+}
+
 
 
 

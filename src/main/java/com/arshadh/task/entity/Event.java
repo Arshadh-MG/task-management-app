@@ -16,16 +16,16 @@ public class Event {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "title", columnDefinition = "LONGTEXT", nullable = false)
+    @Column(name = "title", columnDefinition = "TEXT", nullable = false)
     private String title;
 
-    @Column(name = "description", columnDefinition = "LONGTEXT")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "token_id")
     private String tokenId;
 
-    @Column(name = "subject")
+    @Column(name = "subject", columnDefinition = "TEXT")
     private String subject;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -51,7 +51,7 @@ public class Event {
     @Column(name = "color", nullable = false)
     private String color = "blue";
 
-    @Column(name = "images", columnDefinition = "LONGTEXT")
+    @Column(name = "images", columnDefinition = "TEXT")
     private String images;
 
     @Column(name = "created_at", nullable = false)

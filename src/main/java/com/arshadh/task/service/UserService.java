@@ -44,6 +44,29 @@ public class UserService {
         return ApiResponse.success("Registration successful.");
     }
 
+    public ApiResponse createUser(CreateUserDto request) {
+        String email = (request.getEmail() != null && !request.getEmail().isBlank())
+                ? request.getEmail().trim().toLowerCase()
+                : null;
+        if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This email is already registered.");
+        }
+
+        String rawPassword = (request.getPassword() != null && !request.getPassword().isBlank()) 
+                ? request.getPassword().trim() 
+                : "123456";
+
+        User user = new User(
+                request.getFullName().trim(),
+                email,
+                request.getRole().trim(),
+                passwordUtil.hashPassword(rawPassword)
+        );
+
+        userRepository.save(user);
+        return ApiResponse.success("User added successfully.");
+    }
+
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
         String email = request.getEmail().trim().toLowerCase();

@@ -40,6 +40,12 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
+    @PostMapping("/users")
+    public ResponseEntity<ApiResponse> createUser(@Valid @RequestBody com.arshadh.task.dto.CreateUserDto request) {
+        ApiResponse response = userService.createUser(request);
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/users")
     public ResponseEntity<ApiResponse> deleteUser(@RequestParam("id") Long id) {
         ApiResponse response = userService.deleteUser(id);
