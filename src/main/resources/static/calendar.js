@@ -771,7 +771,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Auto-save update when clicking Add + and prepare next new update row
+    let isNewUpdateSaving = false;
+
     async function handleAutoSaveAndAdd() {
+        // Immediate synchronous lock check to ignore rapid successive Enter presses or clicks
+        if (isNewUpdateSaving) return;
+
+        const inputTr = document.querySelector('.excel-new-update-row:not([data-is-edit="true"])');
+        if (inputTr && inputTr.dataset.isSaving === 'true') return;
+
         const taskInp = document.getElementById('excelNewTask');
         const assignSel = document.getElementById('excelNewAssign');
         const statusSel = document.getElementById('excelNewStatus');
@@ -829,6 +837,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // IMMEDIATELY LOCK THE ROW SYNCHRONOUSLY BEFORE NETWORK ACTIVITY
+        isNewUpdateSaving = true;
+        if (inputTr) {
+            inputTr.dataset.isSaving = 'true';
+            inputTr.style.pointerEvents = 'none';
+            inputTr.style.opacity = '0.6';
+        }
+        taskInp.disabled = true;
+        assignSel.disabled = true;
+        statusSel.disabled = true;
+        productSel.disabled = true;
+
         const payload = {
             userId: currentUser.userId || currentUser.id || 1,
             title: content || 'Update',
@@ -867,6 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Refresh events and re-render list with empty new row ready at top
             fetchEvents(() => {
                 fetchProducts(() => {
+                    isNewUpdateSaving = false;
                     renderDayUpdatesList(state.selectedDate);
                     setTimeout(() => {
                         const newTaskInp = document.getElementById('excelNewTask');
@@ -875,8 +896,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         } catch (err) {
-            alert(err.message || 'Error adding update.');
-        } finally {
+            // Unlock row on error so user can edit and retry
+            isNewUpdateSaving = false;
+            if (inputTr) {
+                inputTr.dataset.isSaving = 'false';
+                inputTr.style.pointerEvents = 'auto';
+                inputTr.style.opacity = '1';
+            }
+            taskInp.disabled = false;
+            assignSel.disabled = false;
+            statusSel.disabled = false;
+            productSel.disabled = false;
             if (addHeaderBtn) {
                 addHeaderBtn.disabled = false;
                 addHeaderBtn.textContent = '+ Add';
@@ -885,6 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 addRowBtn.disabled = false;
                 addRowBtn.textContent = '+ Add';
             }
+            alert(err.message || 'Error adding update.');
         }
     }
 
@@ -1006,9 +1037,12 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.value = '';
         });
 
-        // Enter key to auto-save only after selecting the Product dropdown
-        productSelect?.addEventListener('keydown', (e) => {
+        // Enter key to auto-save on entire new update row (or fields inside it)
+        inputTr.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
+                if (e.target.tagName === 'TEXTAREA' && e.shiftKey) {
+                    return; // allow multiline when Shift+Enter is pressed
+                }
                 e.preventDefault();
                 handleAutoSaveAndAdd();
             }
@@ -1370,11 +1404,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         renderEditImagesPreview();
 
+                        editTr.dataset.isEdit = 'true';
+
                         editTr.querySelector('.btn-cancel-edit').addEventListener('click', () => {
                             renderDayUpdatesList(state.selectedDate);
                         });
 
-                        editTr.querySelector('.btn-save-edit').addEventListener('click', async () => {
+                        async function saveInlineEdit() {
+                            if (editTr.dataset.isSaving === 'true') return;
+
                             const newContent = editTr.querySelector('.edit-task-input').value.trim();
                             const newMemberId = editTr.querySelector('.edit-assign-select').value;
                             const newStatus = editTr.querySelector('.edit-status-select').value;
@@ -1400,6 +1438,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 alert('A duplicate ticket with this exact content already exists for this date and product.');
                                 return;
                             }
+
+                            // Lock edit row synchronously
+                            editTr.dataset.isSaving = 'true';
+                            editTr.style.pointerEvents = 'none';
+                            editTr.style.opacity = '0.6';
 
                             const updatePayload = {
                                 id: evt.id,
@@ -1428,7 +1471,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                     });
                                 });
                             } catch (err) {
+                                editTr.dataset.isSaving = 'false';
+                                editTr.style.pointerEvents = 'auto';
+                                editTr.style.opacity = '1';
                                 alert(err.message || 'Error updating event.');
+                            }
+                        }
+
+                        editTr.querySelector('.btn-save-edit').addEventListener('click', saveInlineEdit);
+
+                        editTr.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                if (e.target.tagName === 'TEXTAREA' && e.shiftKey) return;
+                                e.preventDefault();
+                                saveInlineEdit();
                             }
                         });
 

@@ -102,9 +102,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- ADD USER MODAL LOGIC ---
+    let isSavingUser = false;
+
     function openAddUserModal() {
         if (addUserModalOverlay) {
             addUserModalOverlay.classList.add('active');
+            isSavingUser = false;
+            if (saveUserBtn) {
+                saveUserBtn.disabled = false;
+                saveUserBtn.textContent = 'Save User';
+                saveUserBtn.style.pointerEvents = 'auto';
+            }
             if (newUserFullName) {
                 newUserFullName.value = '';
                 newUserFullName.focus();
@@ -116,6 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeAddUserModal() {
         if (addUserModalOverlay) {
             addUserModalOverlay.classList.remove('active');
+            isSavingUser = false;
+            if (saveUserBtn) {
+                saveUserBtn.disabled = false;
+                saveUserBtn.textContent = 'Save User';
+                saveUserBtn.style.pointerEvents = 'auto';
+            }
             if (addUserForm) addUserForm.reset();
         }
     }
@@ -129,21 +143,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     addUserForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isSavingUser) return;
+
         const fullName = newUserFullName?.value.trim();
         const role = newUserRole?.value.trim();
 
         if (!fullName) {
             alert('Please enter full name.');
+            if (newUserFullName) newUserFullName.focus();
             return;
         }
         if (!role) {
             alert('Please enter user role.');
+            if (newUserRole) newUserRole.focus();
             return;
         }
 
+        // Synchronously lock to ensure only ONE request is sent
+        isSavingUser = true;
         if (saveUserBtn) {
             saveUserBtn.disabled = true;
             saveUserBtn.textContent = 'Saving...';
+            saveUserBtn.style.pointerEvents = 'none';
         }
 
         try {
@@ -160,9 +181,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             alert(err.message || 'Error adding user.');
         } finally {
+            isSavingUser = false;
             if (saveUserBtn) {
                 saveUserBtn.disabled = false;
                 saveUserBtn.textContent = 'Save User';
+                saveUserBtn.style.pointerEvents = 'auto';
             }
         }
     });
