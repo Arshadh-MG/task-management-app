@@ -116,7 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
         users: [],               // Cached list of registered users
         attachedImages: [],      // Base64 image strings currently attached to form
         newUpdateImages: [],     // Images attached to top Excel input row
-        activeInlineId: null     // ID of event currently edited inline, or 'NEW'
+        activeInlineId: null,    // ID of event currently edited inline, or 'NEW'
+        updatingStatusIds: new Set() // Set of event IDs currently in-flight
     };
 
     // --- INITIALIZE VIEWS ---
@@ -1282,9 +1283,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Wire status toggle radio button
                 const radioBtn = tr.querySelector('.status-radio-circle-btn');
                 if (radioBtn) {
-                    radioBtn.addEventListener('click', (e) => {
+                    radioBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
+                        e.preventDefault();
                         const eventId = radioBtn.getAttribute('data-event-id');
+                        if (!eventId || state.updatingStatusIds.has(eventId)) {
+                            return; // Ignore concurrent clicks during network flight
+                        }
+
+                        state.updatingStatusIds.add(eventId);
+                        radioBtn.style.pointerEvents = 'none';
+                        radioBtn.style.opacity = '0.5';
+
                         const currentlyCompleted = String(evt.status || '').toLowerCase() === 'completed' || radioBtn.classList.contains('is-completed');
                         const newStatus = currentlyCompleted ? 'progress' : 'completed';
                         const todayStr = formatDateStr(new Date());
@@ -1298,53 +1308,67 @@ document.addEventListener('DOMContentLoaded', () => {
                                 evObj.eventDate = completedDate;
                             }
                         }
+
+                        // In-place UI feedback on current row
+                        const statusBadge = tr.querySelector('.day-update-status');
+                        if (statusBadge) {
+                            statusBadge.className = `day-update-status ${newStatus === 'completed' ? 'status-badge-completed' : 'status-badge-progress'}`;
+                            statusBadge.textContent = newStatus === 'completed' ? 'Completed' : 'In Progress';
+                        }
+                        const radioColor = newStatus === 'completed' ? '#10b981' : '#f59e0b';
+                        radioBtn.className = `status-radio-circle-btn ${newStatus === 'completed' ? 'is-completed' : 'is-progress'}`;
+                        const svgCircles = radioBtn.querySelectorAll('circle');
+                        if (svgCircles.length >= 2) {
+                            svgCircles[0].setAttribute('stroke', radioColor);
+                            svgCircles[1].setAttribute('fill', radioColor);
+                        }
+
                         renderCalendar();
                         updateUpcomingEvents();
-                        renderDayUpdatesList(state.selectedDate);
 
                         const statusUrl = `/api/events/${eventId}/status?status=${encodeURIComponent(newStatus)}${newStatus === 'completed' ? `&date=${encodeURIComponent(completedDate)}` : ''}`;
 
-                        fetch(statusUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                status: newStatus,
-                                date: completedDate
-                            })
-                        })
-                            .then(async response => {
-                                let res;
-                                try {
-                                    res = await response.json();
-                                } catch (jsonErr) {
-                                    if (!response.ok) {
-                                        throw new Error(`Server returned HTTP ${response.status}`);
-                                    }
-                                }
-                                if (!response.ok) throw new Error((res && (res.error || res.message)) || 'Failed to update status.');
-                                return res;
-                            })
-                            .then(res => {
-                                if (res && res.data) {
-                                    const updated = res.data;
-                                    const idx = state.events.findIndex(e => String(e.id) === String(updated.id));
-                                    if (idx !== -1) {
-                                        state.events[idx] = { ...state.events[idx], ...updated };
-                                    }
-                                }
-                                renderCalendar();
-                                updateUpcomingEvents();
-                                renderDayUpdatesList(state.selectedDate);
-                            })
-                            .catch(err => {
-                                console.error('Status update failed:', err);
-                                alert('Status update failed: ' + (err.message || err));
-                                fetchEvents(() => {
-                                    renderDayUpdatesList(state.selectedDate);
-                                });
+                        try {
+                            const response = await fetch(statusUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    status: newStatus,
+                                    date: completedDate
+                                })
                             });
+
+                            let res;
+                            try {
+                                res = await response.json();
+                            } catch (jsonErr) {
+                                if (!response.ok) {
+                                    throw new Error(`Server returned HTTP ${response.status}`);
+                                }
+                            }
+                            if (!response.ok) throw new Error((res && (res.error || res.message)) || 'Failed to update status.');
+
+                            if (res && res.data) {
+                                const updated = res.data;
+                                const idx = state.events.findIndex(ev => String(ev.id) === String(updated.id));
+                                if (idx !== -1) {
+                                    state.events[idx] = { ...state.events[idx], ...updated };
+                                }
+                            }
+                            renderCalendar();
+                            updateUpcomingEvents();
+                            renderDayUpdatesList(state.selectedDate);
+                        } catch (err) {
+                            console.error('Status update failed:', err);
+                            alert('Status update failed: ' + (err.message || err));
+                            await fetchEvents(() => {
+                                renderDayUpdatesList(state.selectedDate);
+                            });
+                        } finally {
+                            state.updatingStatusIds.delete(eventId);
+                        }
                     });
                 }
 

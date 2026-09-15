@@ -71,7 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
         events: [],
         products: [],
         activeTab: 'users', // 'users' | 'completed' | 'progress' | 'products'
-        searchQuery: ''
+        searchQuery: '',
+        updatingStatusIds: new Set()
     };
 
     // --- INITIALIZE UI ---
@@ -705,9 +706,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Wire single radio button click -> switch status
             const radioBtn = li.querySelector('.status-radio-circle-btn');
             if (radioBtn) {
-                radioBtn.addEventListener('click', (e) => {
+                radioBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     const eventId = radioBtn.getAttribute('data-event-id');
+                    if (!eventId || state.updatingStatusIds.has(eventId)) {
+                        return; // Ignore concurrent clicks during network flight
+                    }
+
+                    state.updatingStatusIds.add(eventId);
+                    radioBtn.style.pointerEvents = 'none';
+                    radioBtn.style.opacity = '0.5';
+
                     const currentlyCompleted = String(evt.status || '').toLowerCase() === 'completed' || radioBtn.classList.contains('is-completed');
                     const newStatus = currentlyCompleted ? 'progress' : 'completed';
                     const now = new Date();
@@ -731,18 +741,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const statusUrl = `/api/events/${eventId}/status?status=${encodeURIComponent(newStatus)}${newStatus === 'completed' ? `&date=${encodeURIComponent(todayStr)}` : ''}`;
 
-                    // Sync with database
-                    fetch(statusUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            status: newStatus,
-                            date: todayStr
-                        })
-                    })
-                    .then(async response => {
+                    try {
+                        const response = await fetch(statusUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                status: newStatus,
+                                date: todayStr
+                            })
+                        });
+
                         let res;
                         try {
                             res = await response.json();
@@ -752,9 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                         if (!response.ok) throw new Error((res && (res.error || res.message)) || 'Failed to update status.');
-                        return res;
-                    })
-                    .then(res => {
+
                         if (res && res.data) {
                             const updated = res.data;
                             const idx = state.events.findIndex(e => String(e.id) === String(updated.id));
@@ -765,12 +773,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateMetrics();
                         populateProductDropdown();
                         renderTasksList();
-                    })
-                    .catch(err => {
+                    } catch (err) {
                         console.error('Status update failed:', err);
                         alert('Status update failed: ' + (err.message || err));
-                        loadDashboardData();
-                    });
+                        await loadDashboardData();
+                    } finally {
+                        state.updatingStatusIds.delete(eventId);
+                    }
                 });
             }
 
