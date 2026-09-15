@@ -73,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const dayViewContainer = document.getElementById('dayViewContainer');
     const backToCalendarBtn = document.getElementById('backToCalendarBtn');
     const dayUpdatesTitle = document.getElementById('dayUpdatesTitle');
+    const prevDayBtn = document.getElementById('prevDayBtn');
+    const nextDayBtn = document.getElementById('nextDayBtn');
     const addUpdateBtn = document.getElementById('addUpdateBtn');
     const tableHeaderAddBtn = document.getElementById('tableHeaderAddBtn');
     const productFilterSelect = document.getElementById('productFilterSelect');
@@ -741,6 +743,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     backToCalendarBtn?.addEventListener('click', closeDayUpdatesModal);
 
+    function navigateDay(offset) {
+        let curDateStr = state.selectedDate;
+        if (!curDateStr) {
+            curDateStr = formatDateStr(new Date());
+        }
+        let currentDate;
+        const parts = curDateStr.split('-');
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            const d = parseInt(parts[2], 10);
+            currentDate = new Date(y, m - 1, d);
+        } else {
+            const parsed = new Date(curDateStr);
+            currentDate = !isNaN(parsed.getTime()) ? parsed : new Date();
+        }
+        currentDate.setDate(currentDate.getDate() + offset);
+        const newDateStr = formatDateStr(currentDate);
+
+        // Keep month/year dropdowns and active month state synchronized
+        state.currentDate = new Date(currentDate);
+        if (monthSelect) monthSelect.value = String(currentDate.getMonth());
+        if (yearSelect) yearSelect.value = String(currentDate.getFullYear());
+
+        openDayUpdatesModal(newDateStr);
+    }
+
+    window.navigateDay = navigateDay;
+    prevDayBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigateDay(-1);
+    });
+    nextDayBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigateDay(1);
+    });
+
     function renderExcelNewPreviews() {
         const previewContainer = document.getElementById('excelNewImagesPreview');
         if (!previewContainer) return;
@@ -1246,16 +1287,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         const eventId = radioBtn.getAttribute('data-event-id');
                         const currentlyCompleted = radioBtn.classList.contains('is-completed');
                         const newStatus = currentlyCompleted ? 'progress' : 'completed';
+                        const todayStr = formatDateStr(new Date());
+                        const completedDate = state.selectedDate || todayStr;
 
                         const evObj = state.events.find(ev => String(ev.id) === String(eventId));
                         if (evObj) {
                             evObj.status = newStatus;
+                            if (newStatus === 'completed') {
+                                evObj.event_date = completedDate;
+                                evObj.eventDate = completedDate;
+                            }
                         }
                         renderCalendar();
                         updateUpcomingEvents();
                         renderDayUpdatesList(state.selectedDate);
 
-                        fetch(`/api/events/${eventId}/status?status=${newStatus}`, {
+                        const statusUrl = newStatus === 'completed'
+                            ? `/api/events/${eventId}/status?status=${newStatus}&date=${encodeURIComponent(completedDate)}`
+                            : `/api/events/${eventId}/status?status=${newStatus}`;
+
+                        fetch(statusUrl, {
                             method: 'POST'
                         })
                             .then(async response => {
@@ -1492,6 +1543,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             editTr.style.pointerEvents = 'none';
                             editTr.style.opacity = '0.6';
 
+                            const todayStr = formatDateStr(new Date());
+                            let targetDate = evt.event_date || evt.eventDate || state.selectedDate;
+                            if (newStatus === 'completed' && evt.status !== 'completed') {
+                                targetDate = state.selectedDate || todayStr;
+                            }
+
                             const updatePayload = {
                                 id: evt.id,
                                 userId: currentUser.userId || currentUser.id || 1,
@@ -1501,7 +1558,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 memberId: parseInt(newMemberId),
                                 status: newStatus,
                                 productId: parseInt(newProductId),
-                                eventDate: evt.event_date || evt.eventDate || state.selectedDate,
+                                eventDate: targetDate,
                                 images: JSON.stringify(editImagesList)
                             };
 

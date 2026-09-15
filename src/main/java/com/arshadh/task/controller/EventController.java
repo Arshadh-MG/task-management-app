@@ -50,8 +50,9 @@ public class EventController {
     @PostMapping("/events/{id}/status")
     public ResponseEntity<ApiResponse> updateEventStatus(
             @PathVariable("id") Long id,
-            @RequestParam("status") String status) {
-        ApiResponse response = eventService.updateEventStatus(id, status);
+            @RequestParam("status") String status,
+            @RequestParam(value = "date", required = false) String date) {
+        ApiResponse response = eventService.updateEventStatus(id, status, date);
         return ResponseEntity.ok(response);
     }
 }

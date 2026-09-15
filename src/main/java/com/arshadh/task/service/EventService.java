@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -96,8 +98,19 @@ public class EventService {
             existing.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
             existing.setMember(member);
             existing.setProduct(product);
-            existing.setStatus(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus().trim() : "progress");
-            existing.setEventDate(request.getEventDate().trim());
+            String newStatus = request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus().trim() : "progress";
+            existing.setStatus(newStatus);
+            if ("completed".equalsIgnoreCase(newStatus)) {
+                if (request.getEventDate() != null && !request.getEventDate().isBlank()) {
+                    existing.setEventDate(request.getEventDate().trim());
+                } else {
+                    existing.setEventDate(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+                }
+            } else {
+                existing.setEventDate(request.getEventDate() != null && !request.getEventDate().isBlank() 
+                        ? request.getEventDate().trim() 
+                        : existing.getEventDate());
+            }
             existing.setStartTime(request.getStartTime() != null ? request.getStartTime().trim() : "");
             existing.setEndTime(request.getEndTime() != null ? request.getEndTime().trim() : "");
             existing.setColor(request.getColor() != null && !request.getColor().isBlank() ? request.getColor().trim() : "blue");
@@ -135,11 +148,23 @@ public class EventService {
     }
 
     public ApiResponse updateEventStatus(Long id, String status) {
+        return updateEventStatus(id, status, null);
+    }
+
+    public ApiResponse updateEventStatus(Long id, String status, String date) {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found."));
-        event.setStatus(status != null && !status.isBlank() ? status.trim() : "progress");
-        eventRepository.save(event);
-        return ApiResponse.success("Event status updated successfully.");
+        String trimmedStatus = status != null && !status.isBlank() ? status.trim() : "progress";
+        event.setStatus(trimmedStatus);
+        if ("completed".equalsIgnoreCase(trimmedStatus)) {
+            if (date != null && !date.isBlank()) {
+                event.setEventDate(date.trim());
+            } else {
+                event.setEventDate(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+            }
+        }
+        Event saved = eventRepository.save(event);
+        return ApiResponse.success("Event status updated successfully.", mapToDto(saved));
     }
 
     private EventResponseDto mapToDto(Event event) {

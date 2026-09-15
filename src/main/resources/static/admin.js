@@ -710,18 +710,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const eventId = radioBtn.getAttribute('data-event-id');
                     const currentlyCompleted = radioBtn.classList.contains('is-completed');
                     const newStatus = currentlyCompleted ? 'progress' : 'completed';
+                    const now = new Date();
+                    const y = now.getFullYear();
+                    const m = String(now.getMonth() + 1).padStart(2, '0');
+                    const d = String(now.getDate()).padStart(2, '0');
+                    const todayStr = `${y}-${m}-${d}`;
 
                     // Instant UI update
                     const evObj = state.events.find(ev => String(ev.id) === String(eventId));
                     if (evObj) {
                         evObj.status = newStatus;
+                        if (newStatus === 'completed') {
+                            evObj.event_date = todayStr;
+                            evObj.eventDate = todayStr;
+                        }
                     }
                     updateMetrics();
                     populateProductDropdown();
                     renderTasksList();
 
+                    const statusUrl = newStatus === 'completed'
+                        ? `/api/events/${eventId}/status?status=${newStatus}&date=${encodeURIComponent(todayStr)}`
+                        : `/api/events/${eventId}/status?status=${newStatus}`;
+
                     // Sync with database
-                    fetch(`/api/events/${eventId}/status?status=${newStatus}`, {
+                    fetch(statusUrl, {
                         method: 'POST'
                     })
                     .then(async response => {
