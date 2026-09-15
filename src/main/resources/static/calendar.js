@@ -1285,7 +1285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     radioBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const eventId = radioBtn.getAttribute('data-event-id');
-                        const currentlyCompleted = radioBtn.classList.contains('is-completed');
+                        const currentlyCompleted = String(evt.status || '').toLowerCase() === 'completed' || radioBtn.classList.contains('is-completed');
                         const newStatus = currentlyCompleted ? 'progress' : 'completed';
                         const todayStr = formatDateStr(new Date());
                         const completedDate = state.selectedDate || todayStr;
@@ -1302,26 +1302,45 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateUpcomingEvents();
                         renderDayUpdatesList(state.selectedDate);
 
-                        const statusUrl = newStatus === 'completed'
-                            ? `/api/events/${eventId}/status?status=${newStatus}&date=${encodeURIComponent(completedDate)}`
-                            : `/api/events/${eventId}/status?status=${newStatus}`;
+                        const statusUrl = `/api/events/${eventId}/status?status=${encodeURIComponent(newStatus)}${newStatus === 'completed' ? `&date=${encodeURIComponent(completedDate)}` : ''}`;
 
                         fetch(statusUrl, {
-                            method: 'POST'
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                status: newStatus,
+                                date: completedDate
+                            })
                         })
                             .then(async response => {
-                                const res = await response.json();
-                                if (!response.ok) throw new Error(res.error || 'Failed to update status.');
+                                let res;
+                                try {
+                                    res = await response.json();
+                                } catch (jsonErr) {
+                                    if (!response.ok) {
+                                        throw new Error(`Server returned HTTP ${response.status}`);
+                                    }
+                                }
+                                if (!response.ok) throw new Error((res && (res.error || res.message)) || 'Failed to update status.');
                                 return res;
                             })
-                            .then(() => {
-                                fetchEvents(() => {
-                                    renderDayUpdatesList(state.selectedDate);
-                                });
+                            .then(res => {
+                                if (res && res.data) {
+                                    const updated = res.data;
+                                    const idx = state.events.findIndex(e => String(e.id) === String(updated.id));
+                                    if (idx !== -1) {
+                                        state.events[idx] = { ...state.events[idx], ...updated };
+                                    }
+                                }
+                                renderCalendar();
+                                updateUpcomingEvents();
+                                renderDayUpdatesList(state.selectedDate);
                             })
                             .catch(err => {
                                 console.error('Status update failed:', err);
-                                alert(err.message || 'Status update failed.');
+                                alert('Status update failed: ' + (err.message || err));
                                 fetchEvents(() => {
                                     renderDayUpdatesList(state.selectedDate);
                                 });
@@ -1974,13 +1993,33 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    async function fetchEvents(callback) {
+        try {
+            const response = await fetch(`/api/events?_t=${Date.now()}`);
+            if (response.ok) {
+                const events = await response.json();
+                state.events = Array.isArray(events) ? events : [];
+                renderCalendar();
+                updateUpcomingEvents();
+                if (dayViewContainer && dayViewContainer.style.display !== 'none') {
+                    renderDayUpdatesList(state.selectedDate);
+                }
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching events:', error);
+        }
+    }
+
     // --- INITIAL FETCHES (CONCURRENT IN PARALLEL) ---
     async function initApp() {
         try {
             const [productsRes, usersRes, eventsRes] = await Promise.all([
-                fetch('/api/products'),
-                fetch('/api/users'),
-                fetch('/api/events')
+                fetch(`/api/products?_t=${Date.now()}`),
+                fetch(`/api/users?_t=${Date.now()}`),
+                fetch(`/api/events?_t=${Date.now()}`)
             ]);
 
             if (productsRes.ok) {

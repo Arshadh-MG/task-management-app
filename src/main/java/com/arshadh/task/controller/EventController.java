@@ -47,11 +47,22 @@ public class EventController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/events/{id}/status")
+    @RequestMapping(value = "/events/{id}/status", method = {RequestMethod.POST, RequestMethod.PUT, RequestMethod.PATCH})
     public ResponseEntity<ApiResponse> updateEventStatus(
             @PathVariable("id") Long id,
-            @RequestParam("status") String status,
-            @RequestParam(value = "date", required = false) String date) {
+            @RequestParam(value = "status", required = false) String statusParam,
+            @RequestParam(value = "date", required = false) String dateParam,
+            @RequestBody(required = false) java.util.Map<String, Object> body) {
+        String status = statusParam;
+        String date = dateParam;
+        if (body != null) {
+            if ((status == null || status.isBlank()) && body.containsKey("status") && body.get("status") != null) {
+                status = String.valueOf(body.get("status"));
+            }
+            if ((date == null || date.isBlank()) && body.containsKey("date") && body.get("date") != null) {
+                date = String.valueOf(body.get("date"));
+            }
+        }
         ApiResponse response = eventService.updateEventStatus(id, status, date);
         return ResponseEntity.ok(response);
     }

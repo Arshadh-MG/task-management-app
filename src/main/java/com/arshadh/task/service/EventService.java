@@ -163,7 +163,7 @@ public class EventService {
                 event.setEventDate(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
             }
         }
-        Event saved = eventRepository.save(event);
+        Event saved = eventRepository.saveAndFlush(event);
         return ApiResponse.success("Event status updated successfully.", mapToDto(saved));
     }
 

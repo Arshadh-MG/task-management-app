@@ -194,9 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadDashboardData() {
         try {
             const [usersRes, eventsRes, productsRes] = await Promise.all([
-                fetch('/api/users'),
-                fetch('/api/events'),
-                fetch('/api/products')
+                fetch(`/api/users?_t=${Date.now()}`),
+                fetch(`/api/events?_t=${Date.now()}`),
+                fetch(`/api/products?_t=${Date.now()}`)
             ]);
 
             state.users = await usersRes.json();
@@ -708,7 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 radioBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const eventId = radioBtn.getAttribute('data-event-id');
-                    const currentlyCompleted = radioBtn.classList.contains('is-completed');
+                    const currentlyCompleted = String(evt.status || '').toLowerCase() === 'completed' || radioBtn.classList.contains('is-completed');
                     const newStatus = currentlyCompleted ? 'progress' : 'completed';
                     const now = new Date();
                     const y = now.getFullYear();
@@ -729,25 +729,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateProductDropdown();
                     renderTasksList();
 
-                    const statusUrl = newStatus === 'completed'
-                        ? `/api/events/${eventId}/status?status=${newStatus}&date=${encodeURIComponent(todayStr)}`
-                        : `/api/events/${eventId}/status?status=${newStatus}`;
+                    const statusUrl = `/api/events/${eventId}/status?status=${encodeURIComponent(newStatus)}${newStatus === 'completed' ? `&date=${encodeURIComponent(todayStr)}` : ''}`;
 
                     // Sync with database
                     fetch(statusUrl, {
-                        method: 'POST'
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            status: newStatus,
+                            date: todayStr
+                        })
                     })
                     .then(async response => {
-                        const res = await response.json();
-                        if (!response.ok) throw new Error(res.error || 'Failed to update status.');
+                        let res;
+                        try {
+                            res = await response.json();
+                        } catch (jsonErr) {
+                            if (!response.ok) {
+                                throw new Error(`Server returned HTTP ${response.status}`);
+                            }
+                        }
+                        if (!response.ok) throw new Error((res && (res.error || res.message)) || 'Failed to update status.');
                         return res;
                     })
-                    .then(() => {
-                        loadDashboardData();
+                    .then(res => {
+                        if (res && res.data) {
+                            const updated = res.data;
+                            const idx = state.events.findIndex(e => String(e.id) === String(updated.id));
+                            if (idx !== -1) {
+                                state.events[idx] = { ...state.events[idx], ...updated };
+                            }
+                        }
+                        updateMetrics();
+                        populateProductDropdown();
+                        renderTasksList();
                     })
                     .catch(err => {
                         console.error('Status update failed:', err);
-                        alert(err.message || 'Status update failed.');
+                        alert('Status update failed: ' + (err.message || err));
                         loadDashboardData();
                     });
                 });
